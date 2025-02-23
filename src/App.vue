@@ -18,76 +18,69 @@
 
 
 <script>
-import { mapGetters, mapActions } from 'vuex';
+import { computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import footerApp from './components/sections/FooterApp.vue';
 import headerApp from './components/sections/HeaderApp.vue';
 import onBoarding from './components/sections/OnBoarding.vue';
 
 export default {
-    name: 'app',
-    methods: {
-        setRouteClass: function (route) {
-            this.actualRouteName = 'route--' + route.name;
-        },
-        ...mapActions({
-            fbLogin: 'cordova/facebookLogin',
-            getConfig: 'auth/getConfig'
-        })
-    },
-    beforeMount () {
-        this.getConfig();
-    },
-    mounted () {
-        if (this.isFacebookApp) {
-            if (!this.logged) {
-                this.fbLogin();
-            }
-        }
-    },
-    computed: {
-        ...mapGetters({
-            deviceReady: 'cordova/deviceReady',
-            backgroundStyle: 'background/backgroundStyle',
-            logged: 'auth/checkLogin',
-            isFacebokApp: 'device/isFacebokApp',
-            appConfig: 'auth/appConfig',
-            isRemoteConfig: 'auth/isRemoteConfig',
-            firsTimeMobileAppOpen: 'device/firsTimeMobileAppOpen',
-            user: 'auth/user',
-            isBrowser: 'device/isBrowser'
-        }),
-        onBoardingVisibility () {
-            let moduleEnabled = this.appConfig && this.isRemoteConfig && this.appConfig.module_on_boarding_new_user && this.appConfig.module_on_boarding_new_user.enabled;
-            let mustShowMobile = !this.isBrowser && !this.firsTimeMobileAppOpen;
-            let mustShowGeneral = this.user && this.user.on_boarding_view !== 1;
-            return moduleEnabled && (mustShowMobile || mustShowGeneral);
-        },
-        viewName () {
-            return this.$route.name;
-        },
-        deviceClass () {
-            return window.device && window.device.platform ? window.device.platform.toLowerCase() : '';
-        }
-    },
-    watch: {
-        deviceReady: () => {
-            console.log('Device ready from components');
-        },
-        appConfig (value) {
-            if (value && value.locale) {
-                this.$root.$i18n.locale = value.locale;
-            }
-        }
-    },
-    data () {
-        return {
-            actualRouteName: ''
-        };
-    },
+    name: 'App',
     components: {
         headerApp,
         footerApp,
         onBoarding
+    },
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+        const { locale } = useI18n()
+        
+        // Computed properties
+        const deviceReady = computed(() => store.getters['cordova/deviceReady'])
+        const backgroundStyle = computed(() => store.getters['background/backgroundStyle'])
+        const logged = computed(() => store.getters['auth/checkLogin'])
+        const isFacebokApp = computed(() => store.getters['device/isFacebokApp'])
+        const appConfig = computed(() => store.getters['auth/appConfig'])
+        const isRemoteConfig = computed(() => store.getters['auth/isRemoteConfig'])
+        const firsTimeMobileAppOpen = computed(() => store.getters['device/firsTimeMobileAppOpen'])
+        const user = computed(() => store.getters['auth/user'])
+        const isBrowser = computed(() => store.getters['device/isBrowser'])
+        const viewName = computed(() => route.name)
+        const deviceClass = computed(() => window.device && window.device.platform ? window.device.platform.toLowerCase() : '')
+        
+        const onBoardingVisibility = computed(() => {
+            let moduleEnabled = appConfig.value && isRemoteConfig.value && 
+                appConfig.value.module_on_boarding_new_user && 
+                appConfig.value.module_on_boarding_new_user.enabled
+            let mustShowMobile = !isBrowser.value && !firsTimeMobileAppOpen.value
+            let mustShowGeneral = user.value && user.value.on_boarding_view !== 1
+            return moduleEnabled && (mustShowMobile || mustShowGeneral)
+        })
+
+        onMounted(() => {
+            store.dispatch('auth/getConfig')
+            if (isFacebokApp.value && !logged.value) {
+                store.dispatch('cordova/facebookLogin')
+            }
+        })
+
+        return {
+            deviceReady,
+            backgroundStyle,
+            logged,
+            isFacebokApp,
+            appConfig,
+            isRemoteConfig,
+            firsTimeMobileAppOpen,
+            user,
+            isBrowser,
+            onBoardingVisibility,
+            viewName,
+            deviceClass
+        }
     }
 };
 </script>

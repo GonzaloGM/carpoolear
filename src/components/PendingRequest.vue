@@ -7,12 +7,14 @@
                     </div>
                 </router-link>
             </div>
-            <modal :name="'modal'" v-if="showModalRequestSeat" @close="onModalClose" :title="'Carpoodatos'" :body="'Body'">
-                <h3 slot="header">
-                    <span>¡Carpoodatos!</span>
-                    <i v-on:click="onModalClose" class="fa fa-times float-right-close"></i>
-                </h3>
-                <div slot="body">
+            <modal v-model:visible="showModalRequestSeat" title="Carpoodatos">
+                <template #header>
+                    <h3>
+                        <span>¡Carpoodatos!</span>
+                        <i @click="onModalClose" class="fa fa-times float-right-close"></i>
+                    </h3>
+                </template>
+                <template #body>
                     <div class="text-left carpoodatos">
                       <p>Antes de aceptar solicitud de asiento, mandale mensaje a la otra persona para coordinar todo lo vinculado al viaje: punto de encuentro, punto de llegada, tamaño de bolsos, contribución para combustible y peajes, etc.</p>
                       <p>Si aceptás una solicitud de asiento, se genera el compromiso de viajar entre vos y la otra persona, habilitándose la posibilidad de calificación 24hs después de comenzado el viaje. Tendrán 14 días para calificarse.</p>
@@ -25,18 +27,20 @@
                             <input type="checkbox" name="acceptRequestValor" value="0" v-model="acceptRequestValue"><span> No volver a mostrar mensaje</span>
                         </label>
                     </div>
+                </template>
+                <template #footer>
                     <div class="text-center">
-                        <button class="btn btn-accept-request" :disabled="acceptInProcess" @click="toAcceptRequest"> 
-                            <spinner class="blue" v-if="acceptInProcess"></spinner>
-                            <span v-else>Aceptar</span>    
+                        <button class="btn btn-accept-request" :disabled="acceptInProcess" @click="toAcceptRequest">
+                            <spinner v-if="acceptInProcess" />
+                            <span v-else>Aceptar</span>
                         </button>
-                        <button class="btn btn-secondary"  @click="onModalToChat"> Enviar Mensaje </button>
+                        <button class="btn btn-chat" @click="onModalToChat">Chatear</button>
                     </div>
-                </div>
+                </template>
             </modal>
             <div class="rate-pending-message">
                 <div class="rate-pending-message--content">
-                    <strong>{{user.name}}</strong> quiere subirse al viaje hacia <strong>{{trip.points[trip.points.length - 1].json_address.ciudad}}</strong> del día {{ trip.trip_date | moment("DD/MM/YYYY") }} a las  {{ trip.trip_date | moment("HH:mm") }}.
+                    <strong>{{user.name}}</strong> quiere subirse al viaje hacia <strong>{{trip.points[trip.points.length - 1].json_address.ciudad}}</strong> del día {{ formatDate(trip.trip_date, "DD/MM/YYYY") }} a las  {{ formatDate(trip.trip_date, "HH:mm") }}.
                     <div class='pending-buttons'>
                         <button class="btn btn-accept-request" :disabled="acceptInProcess || rejectInProcess" @click="onAcceptRequest"> 
                             <spinner class="blue" v-if="acceptInProcess"></spinner>
@@ -56,133 +60,136 @@
     </div>
 </template>
 <script>
-import { mapActions, mapGetters } from 'vuex';
-import router from '../router';
-import modal from './Modal';
-import dialogs from '../services/dialogs.js';
-import spinner from './Spinner.vue';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import dialogs from '../services/dialogs'
+import modal from './Modal.vue'
+import spinner from './Spinner.vue'
+import moment from 'moment'
+
 export default {
-    data () {
-        return {
-            acceptInProcess: false,
-            rejectInProcess: false,
-            showModalRequestSeat: false,
-            acceptRequestValue: 0
-        };
-    },
-    computed: {
-        ...mapGetters({
-            currentUser: 'auth/user',
-            config: 'auth/appConfig'
-        })
-    },
-    methods: {
-        ...mapActions({
-            passengerAccept: 'passenger/accept',
-            passengerReject: 'passenger/reject',
-            lookConversation: 'conversations/createConversation',
-            changeProperty: 'profile/changeProperty'
-        }),
-
-        onAcceptRequest () {
-            if (this.currentUser.do_not_alert_accept_passenger || this.config.disable_user_hints) {
-                this.toAcceptRequest();
-            } else {
-                this.showModalRequestSeat = true;
-            }
-        },
-
-        toAcceptRequest () {
-            if (this.acceptRequestValue) {
-                let data = {
-                    property: 'do_not_alert_accept_passenger',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-
-            let user = this.user;
-            let trip = this.trip;
-            this.acceptInProcess = true;
-            this.passengerAccept({ user, trip }).catch((error) => {
-                if (this.$checkError(error, 'not_seat_available')) {
-                    dialogs.message('No puedes aceptar esta solicitud, todos los asientos del viaje están ocupados.', { duration: 10, estado: 'error' });
-                    return;
-                }
-                console.error(error);
-            }).finally(() => {
-                this.acceptInProcess = false;
-            });
-        },
-
-        reject () {
-            if (this.acceptRequestValue) {
-                let data = {
-                    property: 'do_not_alert_accept_passenger',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-
-            let user = this.user;
-            let trip = this.trip;
-            this.rejectInProcess = true;
-            this.passengerReject({ user, trip }).catch((error) => {
-                console.error(error);
-            }).finally(() => {
-                this.rejectInProcess = false;
-            });
-        },
-
-        chat () {
-            let user = this.user;
-
-            this.lookConversation(user).then(conversation => {
-                router.push({ name: 'conversation-chat', params: { id: conversation.id } });
-            });
-        },
-        onModalToChat () {
-            this.showModalRequestSeat = false;
-
-            if (this.acceptRequestValue) {
-                let data = {
-                    property: 'do_not_alert_accept_passenger',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-            this.chat();
-        },
-
-        onModalClose () {
-            this.showModalRequestSeat = false;
-
-            if (this.acceptRequestValue) {
-                let data = {
-                    property: 'do_not_alert_accept_passenger',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-        }
-    },
-
+    name: 'pending-request',
+    props: ['user', 'trip'],
     components: {
         modal,
         spinner
     },
+    setup(props) {
+        const store = useStore()
+        const router = useRouter()
+        
+        const acceptInProcess = ref(false)
+        const rejectInProcess = ref(false)
+        const showModalRequestSeat = ref(false)
+        const acceptRequestValue = ref(0)
 
-    props: [
-        'user',
-        'trip'
-    ]
-};
+        const currentUser = computed(() => store.getters['auth/user'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const formatDate = (date, format) => {
+            return moment(date).format(format)
+        }
+
+        const onAcceptRequest = () => {
+            if (currentUser.value.do_not_alert_accept_passenger || config.value.disable_user_hints) {
+                toAcceptRequest()
+            } else {
+                showModalRequestSeat.value = true
+            }
+        }
+
+        const toAcceptRequest = async () => {
+            if (acceptRequestValue.value) {
+                await store.dispatch('profile/changeProperty', {
+                    property: 'do_not_alert_accept_passenger',
+                    value: 1
+                })
+            }
+
+            acceptInProcess.value = true
+            try {
+                await store.dispatch('passenger/accept', { 
+                    user: props.user, 
+                    trip: props.trip 
+                })
+            } catch (error) {
+                if (checkError(error, 'not_seat_available')) {
+                    dialogs.message('No puedes aceptar esta solicitud, todos los asientos del viaje están ocupados.', 
+                        { duration: 10, estado: 'error' })
+                    return
+                }
+                console.error(error)
+            } finally {
+                acceptInProcess.value = false
+            }
+        }
+
+        const reject = async () => {
+            rejectInProcess.value = true
+            try {
+                await store.dispatch('passenger/reject', { 
+                    user: props.user, 
+                    trip: props.trip 
+                })
+            } catch (error) {
+                console.error('Error rejecting request:', error)
+                dialogs.error('No se pudo rechazar la solicitud')
+            } finally {
+                rejectInProcess.value = false
+            }
+        }
+
+        const chat = () => {
+            router.push({ 
+                name: 'conversation', 
+                params: { 
+                    id: props.user.id 
+                }
+            })
+        }
+
+        const onModalClose = () => {
+            if (acceptRequestValue.value) {
+                store.dispatch('profile/changeProperty', {
+                    property: 'do_not_alert_accept_passenger',
+                    value: 1
+                }).then(() => {
+                    console.log('do not alert success')
+                })
+            }
+            showModalRequestSeat.value = false
+        }
+
+        const onModalToChat = () => {
+            showModalRequestSeat.value = false
+
+            if (acceptRequestValue.value) {
+                store.dispatch('profile/changeProperty', {
+                    property: 'do_not_alert_accept_passenger',
+                    value: 1
+                }).then(() => {
+                    console.log('do not alert success')
+                })
+            }
+            chat()
+        }
+
+        return {
+            acceptInProcess,
+            rejectInProcess,
+            showModalRequestSeat,
+            acceptRequestValue,
+            currentUser,
+            config,
+            formatDate,
+            onAcceptRequest,
+            toAcceptRequest,
+            reject,
+            chat,
+            onModalClose,
+            onModalToChat
+        }
+    }
+}
 </script>

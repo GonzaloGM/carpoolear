@@ -16,21 +16,22 @@
 
   </div>
 </template>
+
 <script>
-export default {
+import { defineComponent } from 'vue'
+
+export default defineComponent({
     name: 'friend_card',
-    props: [
-        'user'
-    ],
-    data () {
-        return {
-
-        };
+    props: {
+        user: {
+            type: Object,
+            required: true
+        }
     },
-    mounted () {
-
+    setup() {
+        return {}
     }
-};
+})
 </script>
 
 <style scoped>

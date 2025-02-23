@@ -4,26 +4,32 @@
         <span> {{trip.description}} </span>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+
 export default {
     name: 'TripDescription',
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme'
-        }),
-        descriptionLength () {
-            return this.trip.description.length > 215 ? 'long-description' : '';
+    setup() {
+        const store = useStore()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        
+        const descriptionLength = computed(() => {
+            return trip.value.description.length > 215 ? 'long-description' : ''
+        })
+
+        return {
+            trip,
+            tripCardTheme,
+            descriptionLength
         }
-    },
-    props: [],
-    components: {
-    },
-    methods: {
     }
-};
+}
 </script>
+
 <style scoped>
     .quote {
         margin-left: 1em;

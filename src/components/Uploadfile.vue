@@ -3,40 +3,40 @@
 </template>
 
 <script>
+import { ref } from 'vue'
+
 export default {
     name: 'uploadfile',
-    data () {
-        return {
-        };
-    },
-    mounted () {
-    },
-    methods: {
-        show () {
-            this.$refs.input.click();
-        },
+    props: ['name'],
+    setup(props, { emit }) {
+        const input = ref(null)
 
-        onFileChange (e) {
-            let files = e.target.files || e.dataTransfer.files;
-            if (!files.length) {
-                return;
-            }
-            this.createImage(files[0]);
-        },
-
-        createImage (file) {
-            /* eslint-disable no-undef */
-            let reader = new FileReader();
-            let vm = this;
-            reader.onload = (e) => {
-                let image = e.target.result;
-                let data = {};
-                data[vm.name] = image;
-                vm.$emit('change', data);
-            };
-            reader.readAsDataURL(file);
+        const show = () => {
+            input.value.click()
         }
-    },
-    props: ['name']
-};
+
+        const onFileChange = (e) => {
+            let files = e.target.files || e.dataTransfer.files
+            if (!files.length) return
+            createImage(files[0])
+        }
+
+        const createImage = (file) => {
+            let reader = new FileReader()
+            reader.onload = (e) => {
+                let image = e.target.result
+                let data = {}
+                data[props.name] = image
+                emit('change', data)
+            }
+            reader.readAsDataURL(file)
+        }
+
+        return {
+            input,
+            show,
+            onFileChange
+        }
+    }
+}
 </script>

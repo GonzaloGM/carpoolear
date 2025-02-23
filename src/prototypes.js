@@ -1,7 +1,8 @@
-import Vue from 'vue';
-import { cssvar, scrollToElement, checkError, getErrors } from './../utils/helpers';
+import { cssvar, scrollToElement, checkError, getErrors } from './../utils/helpers'
 
-Vue.prototype.$cssvar = cssvar;
-Vue.prototype.$scrollToElement = scrollToElement;
-Vue.prototype.$checkError = checkError;
-Vue.prototype.$getErrors = getErrors;
+export function setupGlobalProperties(app) {
+    app.config.globalProperties.$cssvar = cssvar
+    app.config.globalProperties.$scrollToElement = scrollToElement
+    app.config.globalProperties.$checkError = checkError
+    app.config.globalProperties.$getErrors = getErrors
+}

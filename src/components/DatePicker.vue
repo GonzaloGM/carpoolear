@@ -17,7 +17,7 @@
                     to: min,
                     from: max
                 }"
-                :disabled-picker = "disabledPicker"
+                :disabled-picker="disabledPicker"
                 autocomplete="off">
             </DatepickerSystem>
         </div>
@@ -25,12 +25,12 @@
             <input
                 @focus="openNativeDatePicker"
                 @blur="focus = false"
-                :value = "niceDate"
+                :value="niceDate"
                 @change="changeMobileValue"
                 type="text"
                 id="datepicker-mobile"
-                :min="min| moment('YYYY-MM-DD')"
-                :max="max| moment('YYYY-MM-DD')"
+                :min="min"
+                :max="max"
                 autocomplete="off"
                 :placeholder="'dd/mm/yyyy'"
             />
@@ -39,178 +39,128 @@
 </template>
 
 <script>
-import DatepickerSystem from 'vuejs-datepicker';
-import { mapGetters } from 'vuex';
-import moment from 'moment';
-import bus from '../services/bus-event';
-/*
+import { ref, watch, onMounted } from 'vue'
+import DatepickerSystem from 'vuejs-datepicker'
+import moment from 'moment'
+import bus from '../services/bus-event'
 
-*/
 export default {
     name: 'datePicker',
-    data () {
-        return {
-            dateBrowser: '',
-            dateMobile: '',
-            date: '',
-            update: true,
-            focus: false,
-            nextYear: moment().add(2, 'years').format('YYYY-MM-DD'),
-            lastCentury: moment().subtract(100, 'years').format('YYYY-MM-DD'),
-            niceDate: ''
-        };
-    },
-    mounted () {
-        if (this.value !== '') {
-            this.dateBrowser = moment(this.value).toDate();
-            this.dateMobile = this.value;
-            this.niceDate = moment(this.value).format('DD/MM/YYYY');
-        }
-    },
-
-    updated () {
-        if (this.value !== '') {
-            this.niceDate = moment(this.value).format('DD/MM/YYYY');
-        }
-    },
-    methods: {
-        clear () {
-            this.dateBrowser = '';
-            this.dateMobile = '';
-            this.niceDate = '';
-        },
-        changeValue (value) {
-            this.dateBrowser = value;
-        },
-        changeMobileValue (el) {
-            this.dateMobile = el.target.value;
-        },
-        openNativeDatePicker (event) {
-            event.target.blur();
-            var context = this;
-            this.focus = true;
-            let date = new Date();
-            if (context.dateMobile) {
-                date = moment(context.dateMobile).toDate();
-            }
-            var options = {
-                date: date,
-                mode: 'date',
-                minDate: Date.parse(moment(this.min).toDate()),
-                maxDate: Date.parse(moment(this.max).toDate()),
-                androidTheme: 3
-            };
-
-            function onSuccess (date) {
-                context.dateMobile = moment(date).format('YYYY-MM-DD');
-                context.niceDate = moment(date).format('DD/MM/YYYY');
-            }
-
-            function onError (error) { // Android only
-                console.log(error);
-                // window.alert('Error: ' + error);
-            }
-
-            window.datePicker.show(options, onSuccess, onError);
-        }
-
-    },
-    watch: {
-        dateBrowser: function (value) {
-            value = value && value !== '' ? moment(value).format('YYYY-MM-DD') : '';
-
-            bus.emit('date-change', value);
-
-            this.$emit('date_changed', value);
-        },
-        dateMobile: function (value) {
-            value = value && value !== '' ? value : '';
-
-            bus.emit('date-change', value);
-
-            this.$emit('date_changed', value);
-        },
-        value: function (value) {
-            this.dateBrowser = moment(this.value).toDate();
-            this.dateMobile = this.value;
-            this.niceDate = moment(this.value).format('DD/MM/YYYY');
-        }
+    components: {
+        DatepickerSystem
     },
     props: {
-        'format': {
+        value: {
             type: String,
             required: false,
-            default: 'DD/MM/YYYY'
+            default: ''
         },
-        'value': {
+        min: {
             type: String,
-            required: false
+            required: false,
+            default: ''
         },
-        'minDate': {
-            type: Date,
-            required: false
+        max: {
+            type: String,
+            required: false,
+            default: ''
         },
-        'maxDate': {
-            type: Date,
-            required: false
-        },
-        'disabledPicker': {
+        disabledPicker: {
             type: Boolean,
             required: false,
             default: false
         }
     },
-    computed: {
-        ...mapGetters({
-            isMobile: 'device/isMobile',
-            device: 'cordova/device'
-        }),
-        browser () {
-            if (this.device) {
-                if (this.device.platform === 'browser') {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else {
-                return true;
-            }
-        },
-        max () {
-            let answer;
-            if (this.maxDate) {
-                answer = this.maxDate;
-            } else {
-                answer = this.nextYear;
-            }
-            if (this.browser) {
-                return moment(answer).toDate();
-            } else {
-                return moment(answer).format('YYYY-MM-DD');
-            }
-        },
-        min () {
-            let answer;
-            if (this.minDate) {
-                answer = this.minDate;
-            } else {
-                answer = this.lastCentury;
-            }
-            if (this.browser) {
-                let date = moment(answer).toDate();
-                date.setHours(0);
-                date.setMinutes(0);
-                date.setSeconds(0);
-                return date;
-            } else {
-                return moment(answer).format('YYYY-MM-DD');
-            }
+    setup(props, { emit }) {
+        const dateBrowser = ref('')
+        const dateMobile = ref('')
+        const date = ref('')
+        const update = ref(true)
+        const focus = ref(false)
+        const nextYear = ref(moment().add(2, 'years').format('YYYY-MM-DD'))
+        const lastCentury = ref(moment().subtract(100, 'years').format('YYYY-MM-DD'))
+        const niceDate = ref('')
+        const browser = ref(!/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
+
+        const clear = () => {
+            dateBrowser.value = ''
+            dateMobile.value = ''
+            niceDate.value = ''
         }
-    },
-    components: {
-        DatepickerSystem
+
+        const changeValue = (value) => {
+            dateBrowser.value = value
+        }
+
+        const changeMobileValue = (el) => {
+            dateMobile.value = el.target.value
+        }
+
+        const openNativeDatePicker = (event) => {
+            event.target.blur()
+            const context = this
+            focus.value = true
+            let date = new Date()
+            if (dateMobile.value) {
+                date = moment(dateMobile.value).toDate()
+            }
+            const options = {
+                date: date,
+                mode: 'date',
+                minDate: Date.parse(moment(props.min).toDate()),
+                maxDate: Date.parse(moment(props.max).toDate()),
+                androidTheme: 3
+            }
+
+            function onSuccess(date) {
+                dateMobile.value = moment(date).format('YYYY-MM-DD')
+                niceDate.value = moment(date).format('DD/MM/YYYY')
+            }
+
+            function onError(error) { // Android only
+                console.log(error)
+            }
+
+            window.datePicker.show(options, onSuccess, onError)
+        }
+
+        watch(() => dateBrowser.value, (value) => {
+            value = value && value !== '' ? moment(value).format('YYYY-MM-DD') : ''
+            bus.emit('date-change', value)
+            emit('date_changed', value)
+        })
+
+        watch(() => dateMobile.value, (value) => {
+            value = value && value !== '' ? value : ''
+            bus.emit('date-change', value)
+            emit('date_changed', value)
+        })
+
+        onMounted(() => {
+            if (props.value !== '') {
+                dateBrowser.value = moment(props.value).toDate()
+                dateMobile.value = props.value
+                niceDate.value = moment(props.value).format('DD/MM/YYYY')
+            }
+        })
+
+        return {
+            browser,
+            dateBrowser,
+            dateMobile,
+            date,
+            update,
+            focus,
+            nextYear,
+            lastCentury,
+            niceDate,
+            clear,
+            changeValue,
+            changeMobileValue,
+            openNativeDatePicker
+        }
     }
-};
+}
 </script>
 
 <style>

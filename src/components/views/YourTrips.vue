@@ -2,15 +2,21 @@
   <div class="trips container">
         <div class="col-xs-24">
             <h2>Mis <strong>próximos</strong> viajes</h2>
-            <Loading :data="trips">
-                <div class="trips-list">
-                    <Trip v-for="trip in trips" :trip="trip" :user="user" :enableChangeSeats="true"></Trip>
-                </div>
-                <p slot="no-data" class="alert alert-warning"  role="alert">No tenés viajes creados</p>
-                <p slot="loading" class="alert alert-info" role="alert">
-                    <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
-                    Cargando viajes ...
-                </p>
+            <Loading :data="driverTrips">
+                <template #default>
+                    <div class="trips-list">
+                        <Trip v-for="trip in driverTrips" :key="trip.id" :trip="trip" :user="user" />
+                    </div>
+                </template>
+                <template #no-data>
+                    <p class="alert alert-warning" role="alert">No has realizado ningún viaje aún</p>
+                </template>
+                <template #loading>
+                    <p class="alert alert-info" role="alert">
+                        <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                        Cargando viajes ...
+                    </p>
+                </template>
             </Loading>
         </div>
 
@@ -30,28 +36,42 @@
         <div class="col-xs-24" v-if="oldDriverTrips">
             <h2>Mis viajes pasados</h2>
             <Loading :data="oldDriverTrips">
-                <div class="trips-list">
-                    <Trip v-for="trip in oldDriverTrips" :trip="trip" :user="user"></Trip>
-                </div>
-                <p slot="no-data" class="alert alert-warning"  role="alert">No has realizado ningún viaje aún</p>
-                <p slot="loading" class="alert alert-info" role="alert">
-                    <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
-                    Cargando viajes ...
-                </p>
+                <template #default>
+                    <div class="trips-list">
+                        <Trip v-for="trip in oldDriverTrips" :key="trip.id" :trip="trip" :user="user" />
+                    </div>
+                </template>
+                <template #no-data>
+                    <p class="alert alert-warning" role="alert">No has realizado ningún viaje aún</p>
+                </template>
+                <template #loading>
+                    <p class="alert alert-info" role="alert">
+                        <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                        Cargando viajes ...
+                    </p>
+                </template>
             </Loading>
         </div>
 
         <div class="col-xs-24" v-if="oldPassengerTrips">
             <Loading :data="oldPassengerTrips" :hideOnEmpty="true">
-                <h2 slot="title" > Viajes a los que me <strong>subí</strong> </h2>
-                <div class="trips-list">
-                    <Trip v-for="trip in oldPassengerTrips" :trip="trip" :user="user"></Trip>
-                </div>
-                <p slot="no-data" class="alert alert-warning"  role="alert">No te has subido a ningún viaje.</p>
-                <p slot="loading" class="alert alert-info" role="alert">
-                    <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
-                    Cargando viajes ...
-                </p>
+                <template #title>
+                    <h2>Viajes a los que me <strong>subí</strong></h2>
+                </template>
+                <template #default>
+                    <div class="trips-list">
+                        <Trip v-for="trip in oldPassengerTrips" :key="trip.id" :trip="trip" :user="user" />
+                    </div>
+                </template>
+                <template #no-data>
+                    <p class="alert alert-warning" role="alert">No te has subido a ningún viaje.</p>
+                </template>
+                <template #loading>
+                    <p class="alert alert-info" role="alert">
+                        <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                        Cargando viajes ...
+                    </p>
+                </template>
             </Loading>
         </div>
 
@@ -59,52 +79,81 @@
 </template>
 
 <script>
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import subscriptionItem from '../sections/SubscriptionItem.vue';
 import Trip from '../sections/Trip.vue';
 import Loading from '../Loading.vue';
 import PendingRequest from '../PendingRequest';
 import RatePending from '../RatePending';
-import { mapGetters, mapActions } from 'vuex';
+import { useRouter } from 'vue-router'
 
 import Tab from '../elements/Tab';
 import modal from '../Modal';
 import dialogs from '../../services/dialogs.js';
 
 export default {
-    name: 'my-trips',
-    data () {
-        return {
-            showModalRequestDonation: false,
-            donateValue: 0,
-            modalTripId: 0,
-            showModalPendingRates: false,
-            pendingRatesValue: 0,
-            alreadyAlerted: false,
-            driverTrips: [],
-            passengerTrips: [],
-            oldDriverTrips: [],
-            oldPassengerTrips: []
-        };
-    },
+    name: 'your-trips',
     props: {
         id: {
+            type: String,
             required: false,
             default: 'me'
         }
     },
-    mounted () {
-        this.driverTrips = this.tripAsDriver();
-        this.passengerTrips = this.tripAsPassenger();
-        this.pendingRate();
-        this.getPendingRequest().then(() => {
-            this.oldTripsAsDriver();
-            this.oldTripsAsPassenger();
-        });
-        this.findSubscriptions();
+    setup(props) {
+        const store = useStore()
+        const router = useRouter()
+        
+        const showModalRequestDonation = ref(false)
+        const donateValue = ref(0)
+        const modalTripId = ref(0)
+        const showModalPendingRates = ref(false)
+        const pendingRatesValue = ref(0)
+        const alreadyAlerted = ref(false)
+        const driverTrips = ref([])
+        const passengerTrips = ref([])
+        const oldDriverTrips = ref([])
+        const oldPassengerTrips = ref([])
+
+        const user = computed(() => store.getters['auth/user'])
+        const oldTrips = computed(() => store.getters['myTrips/myOldTrips'])
+        const oldPassengerTripsComputed = computed(() => store.getters['myTrips/passengerOldTrips'])
+        const subscriptions = computed(() => store.getters['subscriptions/subscriptions'])
+        const appConfig = computed(() => store.getters['auth/appConfig'])
+
+        onMounted(async () => {
+            driverTrips.value = await store.dispatch('myTrips/tripAsDriver')
+            passengerTrips.value = await store.dispatch('myTrips/tripAsPassenger')
+            await store.dispatch('rates/pendingRate')
+            await store.dispatch('passenger/getPendingRequest')
+            await Promise.all([
+                store.dispatch('myTrips/oldTripsAsDriver'),
+                store.dispatch('myTrips/oldTripsAsPassenger')
+            ])
+            await store.dispatch('subscriptions/findSubscriptions')
+        })
+
+        return {
+            showModalRequestDonation,
+            donateValue,
+            modalTripId,
+            showModalPendingRates,
+            pendingRatesValue,
+            alreadyAlerted,
+            driverTrips,
+            passengerTrips,
+            oldDriverTrips,
+            oldPassengerTrips,
+            user,
+            oldTrips,
+            oldPassengerTripsComputed,
+            subscriptions,
+            appConfig
+        }
     },
     computed: {
         ...mapGetters({
-            user: 'auth/user',
             oldTrips: 'myTrips/myOldTrips',
             oldPassengerTrips: 'myTrips/passengerOldTrips',
             subscriptions: 'subscriptions/subscriptions',

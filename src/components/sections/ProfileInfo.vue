@@ -91,75 +91,85 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import router from '../../router';
-import Spinner from '../Spinner.vue';
-import dialogs from '../../services/dialogs.js';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import Spinner from '../Spinner.vue'
+import dialogs from '../../services/dialogs.js'
 
 export default {
-    data () {
-        return {
-            sendReferenceFormVisibility: false,
-            referenceComment: '',
-            sending: false
-        };
-    },
-    computed: {
-        ...mapGetters({
-            'user': 'auth/user',
-            'profile': 'profile/user',
-            'config': 'auth/appConfig'
-        }),
-        userReferenceWritten () {
-            return this.profile.references_data && this.profile.references_data.length && this.profile.references_data.findIndex(item => item.user_id_from === this.user.id) >= 0;
-        }
-    },
-    methods: {
-        ...mapActions({
-            lookConversation: 'conversations/createConversation',
-            makeReference: 'profile/makeReference'
-        }),
-        messageUser () {
-            console.log('messageUser profileInfo', this.profile);
-            this.lookConversation(this.profile).then(conversation => {
-                router.push({ name: 'conversation-chat', params: { id: conversation.id } });
-            });
-        },
-        sendReference () {
-            this.sending = true;
-            this.makeReference({
-                user_id_to: this.profile.id,
-                comment: this.referenceComment
-            }).then(() => {
-                dialogs.message(this.$t('referenciaExitosa'));
-                this.sendReferenceFormVisibility = false;
-            }).catch((error) => {
-                let errorMessage = this.$t('referenciaError');
-                if (this.$checkError(error, 'reference_exist')) {
-                    errorMessage = this.$t('referenciaExist');
-                } else if (this.$checkError(error, 'reference_same_user')) {
-                    errorMessage = this.$t('referenciaSameUser');
-                } else if (this.$checkError(error, 'user_doesnt_exist')) {
-                    errorMessage = this.$t('userDoesntExist');
-                }
-                dialogs.message(errorMessage, { estado: 'error' });
-            }).finally(() => {
-                this.sending = false;
-            });
-        },
-        showReferenceForm () {
-            this.sendReferenceFormVisibility = true;
-            this.$nextTick(() => {
-                this.$refs.reference.focus();
-            });
-        }
-    },
+    name: 'profile-info',
     components: {
         Spinner
+    },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        
+        const sendReferenceFormVisibility = ref(false)
+        const referenceComment = ref('')
+        const sending = ref(false)
+
+        const user = computed(() => store.getters['auth/user'])
+        const profile = computed(() => store.getters['profile/user'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const userReferenceWritten = computed(() => {
+            return profile.value.references_data && 
+                   profile.value.references_data.length && 
+                   profile.value.references_data.findIndex(item => item.user_id_from === user.value.id) >= 0
+        })
+
+        const messageUser = async () => {
+            try {
+                const conversation = await store.dispatch('conversations/createConversation', profile.value)
+                router.push({ name: 'conversation-chat', params: { id: conversation.id } })
+            } catch (error) {
+                console.error(error)
+            }
+        }
+
+        const showReferenceForm = () => {
+            sendReferenceFormVisibility.value = true
+        }
+
+        const sendReference = async () => {
+            if (sending.value) return
+            
+            sending.value = true
+            try {
+                await store.dispatch('profile/makeReference', {
+                    user_id_to: profile.value.id,
+                    comment: referenceComment.value
+                })
+                sendReferenceFormVisibility.value = false
+                referenceComment.value = ''
+                dialogs.success('Referencia enviada correctamente')
+            } catch (error) {
+                dialogs.error('Error al enviar la referencia')
+            } finally {
+                sending.value = false
+            }
+        }
+
+        return {
+            user,
+            profile,
+            config,
+            sendReferenceFormVisibility,
+            referenceComment,
+            sending,
+            userReferenceWritten,
+            messageUser,
+            showReferenceForm,
+            sendReference
+        }
     }
-};
+}
 </script>
+
 <style scoped>
     .btn-primary {
         display: inline-block;

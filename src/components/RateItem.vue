@@ -15,7 +15,7 @@
                     <i class="fa fa-thumbs-down" aria-hidden="true"></i>
                 </span>
 
-                <span class="pull-right clickeable" v-if="!rate.reply_comment && user.id === profile.id && config.allow_rating_reply" @click="showReply = !showReply"> <!--   -->
+                <span class="pull-right clickeable" v-if="!rate.reply_comment && user.id === profile.id && config.allow_rating_reply" @click="showReply = !showReply">
                     <i class="fa fa-reply" aria-hidden="true"></i>
                 </span>
             </div>
@@ -83,62 +83,88 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapActions, mapGetters } from 'vuex';
-import moment from 'moment';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import moment from 'moment'
+
 export default {
-    data () {
+    name: 'rate-item',
+    props: {
+        user: {
+            type: Object,
+            required: true
+        },
+        rate: {
+            type: Object,
+            required: true
+        },
+        id: {
+            type: [String, Number],
+            required: false,
+            default: null
+        },
+        notReply: {
+            type: Boolean,
+            required: false,
+            default: false
+        }
+    },
+    setup(props) {
+        const store = useStore()
+        const showReply = ref(false)
+        const comment = ref('')
+
+        const config = computed(() => store.getters['auth/appConfig'])
+        const profile = computed(() => store.getters['profile/user'])
+        
+        const rateType = computed(() => {
+            return props.rate.user_to_type === 0 ? 'pasajero' : 'conductor'
+        })
+
+        const tripCardTheme = computed(() => {
+            return config.value ? config.value.trip_card_design : ''
+        })
+
+        const themeClass = computed(() => {
+            return config.value ? 'rate-item-' + config.value.trip_card_design : ' rate-item-default'
+        })
+
+        const onReply = async () => {
+            const data = {
+                trip_id: props.rate.trip.id,
+                user_id: props.rate.from.id,
+                comment: comment.value
+            }
+            
+            await store.dispatch('rates/reply', data)
+            showReply.value = false
+            props.rate.reply_comment = comment.value
+            props.rate.reply_comment_created_at = moment(new Date()).format()
+            comment.value = ''
+        }
+
+        const onCancelReply = () => {
+            comment.value = ''
+            showReply.value = false
+        }
+
         return {
-            showReply: false,
-            comment: ''
-        };
-    },
-    methods: {
-        ...mapActions({
-            'reply': 'rates/reply'
-        }),
-        onReply () {
-            let data = {
-                trip_id: this.rate.trip.id,
-                user_id: this.rate.from.id,
-                comment: this.comment
-            };
-            this.reply(data).then(() => {
-                this.showReply = false;
-                this.rate.reply_comment = this.comment;
-                this.rate.reply_comment_created_at = moment(new Date()).format();
-                this.comment = '';
-            });
-        },
-        onCancelReply () {
-            this.comment = '';
-            this.showReply = false;
+            showReply,
+            comment,
+            config,
+            profile,
+            rateType,
+            tripCardTheme,
+            themeClass,
+            onReply,
+            onCancelReply
         }
-    },
-    computed: {
-        ...mapGetters({
-            config: 'auth/appConfig',
-            me: 'auth/user',
-            profile: 'profile/user'
-        }),
-        rateType () {
-            return this.rate.user_to_type === 0 ? 'pasajero' : 'conductor';
-        },
-        tripCardTheme () {
-            return this.config ? this.config.trip_card_design : '';
-        },
-        themeClass () {
-            return this.config ? 'rate-item-' + this.config.trip_card_design : ' rate-item-default';
-        }
-    },
-    props: [
-        'user',
-        'rate',
-        'id',
-        'notReply'
-    ]
-};
+    }
+}
 </script>
+
 <style scoped>
     .rate-item-light .rate-item-comment {
         color: var(--primary-color);

@@ -45,62 +45,67 @@
     </div>
   </div>
 </template>
+
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import Loading from '../Loading.vue';
-import FriendCard from './FriendCard';
-import bus from '../../services/bus-event.js';
-import spinner from '../Spinner.vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import Loading from '../Loading.vue'
+import FriendCard from './FriendCard'
+import bus from '../../services/bus-event.js'
+import spinner from '../Spinner.vue'
 
 export default {
     name: 'friends_request',
-    data () {
-        return {
-            text: '',
-            idRequesting: {},
-            searchingRequest: null
-        };
-    },
-    computed: {
-        ...mapGetters({
-            users: 'friends/users'
-        })
-    },
-    methods: {
-        ...mapActions({
-            'search': 'friends/searchUsers',
-            'request': 'friends/request'
-        }),
-        onTextChange () {
-            this.search(this.text);
-        },
-
-        onAddClick (user) {
-            this.$set(this.idRequesting, user.id, true);
-            this.request(user.id).then(() => {
-                this.$set(this.idRequesting, user.id, false);
-            }, () => {
-                this.$set(this.idRequesting, user.id, false);
-            });
-        },
-        onBackClick () {
-            this.$router.back();
-        }
-    },
-
-    mounted () {
-        bus.on('back-click', this.onBackClick);
-    },
-
-    beforeDestroy () {
-        bus.off('back-click', this.onBackClick);
-    },
     components: {
         Loading,
         FriendCard,
         spinner
+    },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        
+        const text = ref('')
+        const idRequesting = ref({})
+        const searchingRequest = ref(null)
+
+        const users = computed(() => store.getters['friends/users'])
+
+        const onTextChange = () => {
+            store.dispatch('friends/searchUsers', text.value)
+        }
+
+        const onAddClick = (user) => {
+            idRequesting.value[user.id] = true
+            store.dispatch('friends/request', user.id).then(() => {
+                idRequesting.value[user.id] = false
+            }, () => {
+                idRequesting.value[user.id] = false
+            })
+        }
+
+        const onBackClick = () => {
+            router.back()
+        }
+
+        onMounted(() => {
+            bus.on('back-click', onBackClick)
+        })
+
+        onBeforeUnmount(() => {
+            bus.off('back-click', onBackClick)
+        })
+
+        return {
+            text,
+            idRequesting,
+            users,
+            onTextChange,
+            onAddClick
+        }
     }
-};
+}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
@@ -131,7 +136,6 @@ export default {
     .btn-primary {
         border-radius: 3px;
         font-size: 12px;
-        padding: .8em 1.8em;
     }
     i {
         padding-left: .4em;

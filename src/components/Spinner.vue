@@ -5,6 +5,39 @@
   </div>
 </template>
 
+<script>
+import { computed } from 'vue'
+
+export default {
+    name: 'spinner',
+    props: {
+        size: {
+            type: String,
+            default: 'medium'
+        },
+        color: {
+            type: String,
+            default: 'blue'
+        }
+    },
+    setup(props) {
+        const spinnerClass = computed(() => {
+            return {
+                'spinner-small': props.size === 'small',
+                'spinner-medium': props.size === 'medium',
+                'spinner-large': props.size === 'large',
+                'spinner-blue': props.color === 'blue',
+                'spinner-white': props.color === 'white'
+            }
+        })
+
+        return {
+            spinnerClass
+        }
+    }
+}
+</script>
+
 <style>
   .loader-container {
       position: absolute;

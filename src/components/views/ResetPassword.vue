@@ -30,99 +30,100 @@
 </template>
 
 <script>
-import { mapActions, mapGetters } from 'vuex';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { emailRegex } from '../../utils/validators'
+import dialogs from '../../services/dialogs'
+import Spinner from '../Spinner.vue';
 import bus from '../../services/bus-event';
 import router from '../../router';
-import Spinner from '../Spinner.vue';
-let emailRegex = /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/;
 
 export default {
     name: 'reset-password',
     props: {
-        'token': {
+        token: {
             type: String,
             required: false
         }
     },
+    setup(props) {
+        const store = useStore()
+        const email = ref('')
+        const loading = ref(false)
+        const error = ref(null)
+        const send = ref(false)
+        const password_confirmation = ref('')
+        const password = ref('')
+        const carpoolear_logo = ref(process.env.ROUTE_BASE + 'static/img/carpoolear_logo.png')
 
-    data () {
+        const settings = computed(() => store.getters['auth/appConfig'])
+        const tripCardTheme = computed(() => settings.value ? settings.value.trip_card_design : '')
+
+        const reset = async () => {
+            error.value = null
+            if (emailRegex.test(email.value)) {
+                loading.value = true
+                try {
+                    await store.dispatch('auth/resetPassword', email.value)
+                    loading.value = false
+                    send.value = true
+                } catch {
+                    loading.value = false
+                    error.value = 'El e-mail ingresado no pertenece a ningún usuario.'
+                }
+            } else {
+                error.value = 'Ingrese un e-mail valido.'
+            }
+        }
+
+        const change = () => {
+            error.value = null
+            if (password.value === password_confirmation.value) {
+                loading.value = true
+                let data = {}
+                data.password = password.value
+                data.password_confirmation = password_confirmation.value
+                let token = props.token
+                store.dispatch('auth/changePassword', { token, data }).then(() => {
+                    router.replace({ name: 'login' })
+                }).catch(() => {
+                    loading.value = false
+                    error.value = 'Token invalido'
+                })
+            } else {
+                error.value = 'No coicide los campos'
+            }
+        }
+
+        const onBackClick = () => {
+            router.back()
+        }
+
         return {
-            email: '',
-            loading: false,
-            error: null,
-            send: false,
-            password_confirmation: '',
-            password: '',
-            carpoolear_logo: process.env.ROUTE_BASE + 'static/img/carpoolear_logo.png'
-        };
-    },
-    computed: {
-        ...mapGetters({
-            isMobile: 'device/isMobile',
-            settings: 'auth/appConfig'
-        }),
-        tripCardTheme () {
-            return this.settings ? this.settings.trip_card_design : '';
+            email,
+            loading,
+            error,
+            send,
+            password_confirmation,
+            password,
+            carpoolear_logo,
+            settings,
+            tripCardTheme,
+            reset,
+            change,
+            onBackClick
         }
     },
-
-    methods: {
-        ...mapActions({
-            'resetPassword': 'auth/resetPassword',
-            'changePassword': 'auth/changePassword'
-        }),
-
-        reset () {
-            this.error = null;
-            if (emailRegex.test(this.email)) {
-                this.loading = true;
-                this.resetPassword(this.email).then(() => {
-                    this.loading = false;
-                    this.send = true;
-                }, () => {
-                    this.loading = false;
-                    this.error = 'El e-mail ingresado no pertenece a ningún usuario.';
-                });
-            } else {
-                this.error = 'Ingrese un e-mail valido.';
-            }
-        },
-
-        change () {
-            this.error = null;
-            if (this.password === this.password_confirmation) {
-                this.loading = true;
-                let data = {};
-                data.password = this.password;
-                data.password_confirmation = this.password_confirmation;
-                let token = this.token;
-                this.changePassword({ token, data }).then(() => {
-                    this.$router.replace({ name: 'login' });
-                }, () => {
-                    this.loading = false;
-                    this.error = 'Token invalido';
-                });
-            } else {
-                this.error = 'No coicide los campos';
-            }
-        },
-        onBackClick () {
-            router.back();
-        }
+    mounted() {
+        bus.on('back-click', this.onBackClick)
     },
-
-    mounted () {
-        bus.on('back-click', this.onBackClick);
+    beforeDestroy() {
+        bus.off('back-click', this.onBackClick)
     },
-
-    beforeDestroy () {
-        bus.off('back-click', this.onBackClick);
-    },
-
     components: {
         Spinner
     }
-};
+}
 </script>
 
 <style>

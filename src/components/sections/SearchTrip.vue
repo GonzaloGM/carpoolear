@@ -66,80 +66,78 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
 import DatePicker from '../DatePicker';
 import autocomplete from '../Autocomplete.vue';
-import bus from '../../services/bus-event.js';
+import { bus } from '../../services/bus'
 import moment from 'moment';
 import dialogs from '../../services/dialogs.js';
 
 export default {
     name: 'search-trip',
-    data () {
-        return {
-            minDate: moment().toDate(),
-            isPassenger: false,
-            from_town: {
-                name: '',
-                location: null,
-                radio: 0,
-                country: ''
-            },
-            to_town: {
-                name: '',
-                location: null,
-                radio: 0,
-                country: ''
-            },
-            date: '',
-            dateAnswer: '',
-            dateError: {
-                message: '',
-                state: ''
-            },
-            chofer_logo_blanco: process.env.ROUTE_BASE + 'static/img/icono-conductor-blanco.png',
-            pasajero_logo_blanco: process.env.ROUTE_BASE + 'static/img/icono-pasajero-blanco.png',
-            chofer_logo_gris: process.env.ROUTE_BASE + 'static/img/icono-conductor-gris.png',
-            pasajero_logo_gris: process.env.ROUTE_BASE + 'static/img/icono-pasajero-gris.png',
-            swap_horizontal: process.env.ROUTE_BASE + 'static/img/flechas_horizontales.png',
-            swap_vertical: process.env.ROUTE_BASE + 'static/img/flechas_verticales.png',
-            allowForeignPoints: false,
-            options: []
-        };
-    },
-    computed: {
-        ...mapGetters({
-            isMobile: 'device/isMobile',
-            config: 'auth/appConfig'
+    setup() {
+        const store = useStore()
+        const minDate = ref(moment().toDate())
+        const isPassenger = ref(false)
+        const from_town = ref({
+            name: '',
+            location: null,
+            radio: 0,
+            country: ''
         })
-    },
-    mounted () {
-        bus.on('date-change', this.dateChange);
-        this.loadParams(this.params);
-        this.from_town.country = this.config.osm_country;
-        this.to_town.country = this.config.osm_country;
-        this.$refs['from_town'].$el.addEventListener('input', this.checkInput);
-        this.$refs['to_town'].$el.addEventListener('input', this.checkInput);
-    },
-    updated () {
-    },
-    beforeDestroy () {
-        this.$refs['from_town'].$el.removeEventListener('input', this.checkInput);
-        this.$refs['to_town'].$el.removeEventListener('input', this.checkInput);
-        bus.off('date-change', this.dateChange);
-    },
-    methods: {
-        dateChange (value) {
-            this.dateAnswer = value;
-        },
-        checkInput (event) {
+        const to_town = ref({
+            name: '',
+            location: null,
+            radio: 0,
+            country: ''
+        })
+        const date = ref('')
+        const dateAnswer = ref('')
+        const dateError = ref({
+            message: '',
+            state: ''
+        })
+
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const chofer_logo_blanco = ref(process.env.ROUTE_BASE + 'static/img/icono-conductor-blanco.png')
+        const pasajero_logo_blanco = ref(process.env.ROUTE_BASE + 'static/img/icono-pasajero-blanco.png')
+        const chofer_logo_gris = ref(process.env.ROUTE_BASE + 'static/img/icono-conductor-gris.png')
+        const pasajero_logo_gris = ref(process.env.ROUTE_BASE + 'static/img/icono-pasajero-gris.png')
+        const swap_horizontal = ref(process.env.ROUTE_BASE + 'static/img/flechas_horizontales.png')
+        const swap_vertical = ref(process.env.ROUTE_BASE + 'static/img/flechas_verticales.png')
+        const allowForeignPoints = ref(false)
+        const options = ref([])
+
+        onMounted(() => {
+            bus.on('date-change', dateChange)
+            from_town.value.country = config.value.osm_country
+            to_town.value.country = config.value.osm_country
+            this.$refs['from_town'].$el.addEventListener('input', this.checkInput)
+            this.$refs['to_town'].$el.addEventListener('input', this.checkInput)
+        })
+
+        onBeforeUnmount(() => {
+            bus.off('date-change', dateChange)
+            this.$refs['from_town'].$el.removeEventListener('input', this.checkInput)
+            this.$refs['to_town'].$el.removeEventListener('input', this.checkInput)
+        })
+
+        const dateChange = (date) => {
+            dateAnswer.value = date
+        }
+
+        const checkInput = (event) => {
             let value = event.target.value;
             let name = event.target.name;
             if (value === '') {
                 this[name] = '';
             }
-        },
-        getPlace (i, data) {
+        }
+
+        const getPlace = (i, data) => {
             console.log('getPlace', data);
             let obj = {};
             // FIXME falta bounding box
@@ -159,8 +157,9 @@ export default {
             } else {
                 this.to_town = obj;
             }
-        },
-        emit () {
+        }
+
+        const emit = () => {
             let params = {};
             let foreignCountry = 0;
             if (this.from_town.location) {
@@ -198,8 +197,9 @@ export default {
             } else {
                 dialogs.message('Origen y destino no pueden ser ambos del exterior.', { duration: 10, estado: 'error' });
             }
-        },
-        resetInput (input) {
+        }
+
+        const resetInput = (input) => {
             if (this.$refs[input]) {
                 this.$refs[input].input = '';
             }
@@ -209,21 +209,24 @@ export default {
                 radio: 0,
                 country: this.config.osm_country
             };
-        },
-        swapCities () {
+        }
+
+        const swapCities = () => {
             let temp;
             temp = this['to_town'];
             this['to_town'] = Object.assign({}, this['from_town']);
             this['from_town'] = Object.assign({}, temp);
-        },
-        clear () {
+        }
+
+        const clear = () => {
             this.resetInput('from_town');
             this.$refs['from_town'].input = '';
             this.resetInput('to_town');
             this.$refs['to_town'].input = '';
             this.$refs.datepicker.clear();
-        },
-        loadParams (parameters) {
+        }
+
+        const loadParams = (parameters) => {
             if (parameters) {
                 if (parameters.origin_name) {
                     this.from_town.name = parameters.origin_name;
@@ -259,10 +262,40 @@ export default {
                     this.date = '';
                 }
             }
-        },
-        onSearch (search, loading) {
+        }
+
+        const onSearch = (search, loading) => {
             loading(true);
             this.search(loading, search, this);
+        }
+
+        return {
+            minDate,
+            isPassenger,
+            from_town,
+            to_town,
+            date,
+            dateAnswer,
+            dateError,
+            isMobile,
+            config,
+            chofer_logo_blanco,
+            pasajero_logo_blanco,
+            chofer_logo_gris,
+            pasajero_logo_gris,
+            swap_horizontal,
+            swap_vertical,
+            allowForeignPoints,
+            options,
+            dateChange,
+            checkInput,
+            getPlace,
+            emit,
+            resetInput,
+            swapCities,
+            clear,
+            loadParams,
+            onSearch
         }
     },
     props: [

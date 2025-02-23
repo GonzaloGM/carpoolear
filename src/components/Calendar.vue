@@ -8,72 +8,14 @@
 </template>
 
 <script>
-import datePicker from 'vue-datepicker';
-import moment from 'moment';
+import { ref, computed, watch, defineEmits } from 'vue'
+import datePicker from 'vue-datepicker'
+import moment from 'moment'
 
 export default {
     name: 'calendar',
-    watch: {
-        'value': function () {
-            let format = 'YYYY-MM-DD';
-            if (this.value.indexOf('/') >= 0) {
-                format = 'DD/MM/YYYY';
-            }
-            let time = moment(this.value, format).format('DD/MM/YYYY');
-            this.$refs.calendar.showDay(time);
-            this.date.time = moment(this.value, format).format('DD/MM/YYYY');
-        }
-    },
-    data () {
-        return {
-            date: {
-                time: this.value
-            },
-            option: {
-                type: 'day',
-                week: ['Lu', 'Ma', 'Mie', 'Ju', 'Vi', 'Sa', 'Do'],
-                month: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
-                format: this.format,
-                placeholder: 'Fecha',
-                inputStyle: {
-                    'display': 'inline-block',
-                    'line-height': '22px',
-                    'border-radius': '2px',
-                    'color': '#5F5F5F',
-                    'width': '100%',
-                    'border': 'none'
-                },
-                wrapperClass: this.class,
-                color: {
-                    header: '#016587',
-                    headerText: '#FFF'
-                },
-                buttons: {
-                    ok: 'Aceptar',
-                    cancel: 'Cancelar'
-                },
-                overlayOpacity: 0.5, // 0.5 as default
-                dismissible: true // as true as default
-            },
-            limit: [this.limitFilter]
-        };
-    },
-    mounted () {
-
-    },
-    computed: {
-        dateSys: function () {
-            return moment(this.date.time, this.format).format('YYYY-MM-DD');
-        }
-    },
-    methods: {
-        updateDate (date) {
-            this.$emit('change', this.dateSys);
-        },
-        resetDatePicker () {
-            this.date.time = '';
-            this.$emit('change', '');
-        }
+    components: {
+        datePicker
     },
     props: {
         'format': {
@@ -94,15 +36,79 @@ export default {
         'limitFilter': {
             type: Object,
             required: false,
-            default: () => {
-                return {};
-            }
+            default: () => ({})
         }
     },
-    components: {
-        datePicker
+    setup(props) {
+        const emit = defineEmits(['change'])
+        const calendar = ref(null)
+        const date = ref({
+            time: props.value
+        })
+        
+        const option = ref({
+            type: 'day',
+            week: ['Lu', 'Ma', 'Mie', 'Ju', 'Vi', 'Sa', 'Do'],
+            month: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+            format: props.format,
+            placeholder: 'Fecha',
+            inputStyle: {
+                'display': 'inline-block',
+                'line-height': '22px',
+                'border-radius': '2px',
+                'color': '#5F5F5F',
+                'width': '100%',
+                'border': 'none'
+            },
+            wrapperClass: props.class,
+            color: {
+                header: '#016587',
+                headerText: '#FFF'
+            },
+            buttons: {
+                ok: 'Aceptar',
+                cancel: 'Cancelar'
+            },
+            overlayOpacity: 0.5,
+            dismissible: true
+        })
+
+        const limit = ref([props.limitFilter])
+
+        const dateSys = computed(() => {
+            return moment(date.value.time, props.format).format('YYYY-MM-DD')
+        })
+
+        watch(() => props.value, (newValue) => {
+            let format = 'YYYY-MM-DD'
+            if (newValue.indexOf('/') >= 0) {
+                format = 'DD/MM/YYYY'
+            }
+            let time = moment(newValue, format).format('DD/MM/YYYY')
+            calendar.value.showDay(time)
+            date.value.time = moment(newValue, format).format('DD/MM/YYYY')
+        })
+
+        const updateDate = () => {
+            emit('change', dateSys.value)
+        }
+
+        const resetDatePicker = () => {
+            date.value.time = ''
+            emit('change', '')
+        }
+
+        return {
+            calendar,
+            date,
+            option,
+            limit,
+            dateSys,
+            updateDate,
+            resetDatePicker
+        }
     }
-};
+}
 </script>
 
 <style scoped>
@@ -122,5 +128,4 @@ export default {
         vertical-align: middle;
         cursor: pointer;
     }
-
 </style>

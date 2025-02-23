@@ -222,158 +222,126 @@
   </div>
 </template>
 <script>
-import { mapActions, mapGetters } from 'vuex';
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import dialogs from '../../services/dialogs.js';
 import bus from '../../services/bus-event.js';
-import tripDisplay from './TripDisplay';
+import tripDisplay from './TripDisplay.vue';
 import moment from 'moment';
-import SvgItem from '../SvgItem';
+import SvgItem from '../elements/SvgItem.vue'
 
 export default {
     name: 'trip',
+    components: {
+        tripDisplay,
+        SvgItem
+    },
     props: {
-        'trip': {
+        trip: {
             type: Object,
-            required: false,
-            default: () => {
-                return {};
-            }
+            required: true
         },
-        'user': {
+        user: {
             type: Object,
-            required: false,
-            default: () => {
-                return {};
-            }
+            default: null
         },
-        'enableChangeSeats': {
+        clickModal: {
             type: Boolean,
-            required: false,
             default: false
         },
-        'clickModal': {
-            required: false,
+        enableChangeSeats: {
+            type: Boolean,
             default: false
+        },
+        tripCardTheme: {
+            type: String,
+            default: 'default'
+        },
+        tripCardClass: {
+            type: String,
+            default: ''
+        },
+        tripCardCountClass: {
+            type: String,
+            default: ''
         }
     },
+    setup(props) {
+        const store = useStore()
+        const router = useRouter()
+        
+        const showTrip = ref(false)
+        const inProgress = ref(false)
 
-    methods: {
-        ...mapActions({
-            changeSeats: 'trips/changeSeats',
-            remove: 'trips/remove'
-        }),
-        goToDetail: function (goToEdit, passengerView) {
-            if (goToEdit) {
-                this.$router.push({ name: 'update-trip', params: { id: this.trip.id } });
-            } else {
-                if (!passengerView) {
-                    bus.emit('trip-click');
-                    this.$router.push({ name: 'detail_trip', params: { id: this.trip.id } });
-                } else {
-                    this.$router.push({
-                        name: 'detail_trip_location',
-                        params: {
-                            id: this.trip.id,
-                            location: 'passenger'
-                        }
-                    });
-                }
-            }
-        },
-        goToProfile: function (event) {
-            event.stopPropagation();
-            this.$router.push({
-                name: 'profile',
-                params: {
-                    id: this.trip.user.id,
-                    userProfile: this.trip.user,
-                    activeTab: 1
-                }
-            });
-        },
-        changeSeatsNumber: function (increment) {
-            this.sending = true;
-            let data = {
-                id: this.trip.id,
-                increment: increment
-            };
-            this.changeSeats(data).then((data) => {
-                this.sending = false;
-                this.seats_available = data.seats_available;
-                this.trip.total_seats += increment;
-                this.$forceUpdate();
-            }).catch((response) => {
-                this.sending = false;
-                let errorMessage = '';
-                if (response.status === 422) {
-                    if (response.data.errors && response.data.errors.error && response.data.errors.error.length) {
-                        let error = response.data.errors.error[0];
-                        switch (error) {
-                        case 'trip_seats_greater_than_zero':
-                            errorMessage = this.$t('asientosMenorACero');
-                            break;
-                        case 'trip_seats_less_than_four':
-                            errorMessage = this.$t('masDeCuatroAsientos');
-                            break;
-                        case 'trip_invalid_seats':
-                            errorMessage = this.$t('noPuedesDisminuirAsientos');
-                            break;
-                        default:
-                            errorMessage = this.$t('errorACambiarAsientos');
-                            break;
-                        }
-                    } else {
-                        errorMessage = this.$t('errorACambiarAsientos');
+        const config = computed(() => store.getters['auth/appConfig'])
+        const seats_available = computed(() => props.trip.seats_available)
+        const getUserImage = computed(() => props.user ? props.user.image : null)
+        const tripStars = computed(() => {
+            if (!props.trip.user || !props.trip.user.positive_ratings) return []
+            return Array(5).fill().map((_, i) => ({
+                id: i,
+                value: i < props.trip.user.positive_ratings ? '-full' : '-empty'
+            }))
+        })
+
+        const openModal = () => {
+            showTrip.value = true
+        }
+
+        const closeModal = () => {
+            showTrip.value = false
+        }
+
+        const goToDetail = (fromMap) => {
+            if (!props.clickModal) {
+                router.push({ 
+                    name: 'trip', 
+                    params: { 
+                        id: props.trip.id,
+                        fromMap: fromMap ? 1 : 0
                     }
-                } else {
-                    errorMessage = this.$t('errorACambiarAsientos');
-                }
-                dialogs.message(errorMessage, { estado: 'error' });
-            });
-        },
-        deleteTrip: function () {
-            if (window.confirm(this.$t('seguroCancelar'))) {
-                this.remove(this.trip.id).then(() => {
-                    dialogs.message(this.$t('viajeCancelado'), { estado: 'success' });
-                }).catch((error) => {
-                    console.error(error);
-                    dialogs.message(this.$t('errorAlCancelar'), { estado: 'error' });
-                });
+                })
             }
-        },
-        openModal () {
-            this.showTrip = true;
-        },
-        closeModal () {
-            this.showTrip = false;
-        },
-        getLocationName (location) {
-            if (location.json_address) {
-                if (location.json_address.ciudad) {
-                    return location.json_address.ciudad;
-                }
-                if (location.json_address.name) {
-                    return location.json_address.name;
-                }
+        }
+
+        const goToProfile = () => {
+            router.push({ name: 'profile', params: { id: props.trip.user.id }})
+        }
+
+        const updateSeats = async () => {
+            if (inProgress.value) return
+            
+            inProgress.value = true
+            try {
+                await store.dispatch('trips/updateSeats', {
+                    tripId: props.trip.id,
+                    seats: seats_available.value
+                })
+            } catch (error) {
+                console.error('Error updating seats:', error)
+            } finally {
+                inProgress.value = false
             }
-            return location.address;
-        },
-        getStateName (location) {
-            if (location.json_address) {
-                if (location.json_address.provincia) {
-                    return location.json_address.provincia;
-                }
-                if (location.json_address.state) {
-                    return location.json_address.state;
-                }
-            }
-            return '';
+        }
+
+        return {
+            showTrip,
+            inProgress,
+            config,
+            seats_available,
+            getUserImage,
+            tripStars,
+            openModal,
+            closeModal,
+            goToDetail,
+            goToProfile,
+            updateSeats
         }
     },
     data () {
         return {
             sending: false,
-            seats_available: 0,
             CITY_NAME_LONG_LENGTH: 16,
             LONG_NAME_STYLE: {
                 'font-size': '17px'
@@ -382,26 +350,6 @@ export default {
         };
     },
     computed: {
-        ...mapGetters({
-            config: 'auth/appConfig'
-        }),
-        tripCardCountClass () {
-            if (this.config) {
-                if (this.config.max_cards_per_row === 3) {
-                    return 'col-lg-8 col-md-12 col-sm-12';
-                } else {
-                    return 'col-lg-6 col-md-8 col-sm-12';
-                }
-            } else {
-                return 'col-lg-6 col-md-8 col-sm-12';
-            }
-        },
-        tripCardClass () {
-            return this.config ? ('card-trip-theme-' + this.config.trip_card_design) : '';
-        },
-        tripCardTheme () {
-            return this.config ? this.config.trip_card_design : '';
-        },
         originLongName () {
             if (this.trip.points) {
                 let name = this.getLocationName(this.trip.points[0]);
@@ -417,9 +365,6 @@ export default {
             } else {
                 return false;
             }
-        },
-        getUserImage () {
-            return this.user.id === this.trip.user.id ? this.user.image : this.trip.user.image;
         },
         tripArrivingTime () {
             if (this.trip && this.trip.estimated_time) {
@@ -468,10 +413,6 @@ export default {
                 return [];
             }
         }
-    },
-    components: {
-        tripDisplay,
-        SvgItem
     },
     mounted () {
         if (this.trip) {

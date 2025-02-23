@@ -4,10 +4,10 @@
             <div class="rate-pending-message">
                 <div class="rate-pending-message--content">
                     <h3>Confirmá tu asiento</h3>
-                    Te han aceptado en el viaje hacia <strong>{{ trip.points[trip.points.length - 1].json_address ? trip.points[trip.points.length - 1].json_address.name : trip.points[trip.points.length - 1].address }} del día {{ trip.trip_date | moment("DD/MM/YYYY") }} a las  {{ trip.trip_date | moment("HH:mm") }}</strong> ahora debes realizar el pago de <strong>$ {{ trip.seat_price }}</strong> para confirmar tu asiento.
+                    Te han aceptado en el viaje hacia <strong>{{ trip.points[trip.points.length - 1].json_address ? trip.points[trip.points.length - 1].json_address.name : trip.points[trip.points.length - 1].address }} del día {{ formatDate(trip.trip_date, "DD/MM/YYYY") }} a las {{ formatDate(trip.trip_date, "HH:mm") }}</strong> ahora debes realizar el pago de <strong>$ {{ trip.seat_price }}</strong> para confirmar tu asiento.
                     <div class='pending-buttons'>
-                        <button class="btn btn-accept-request" :disabled="acceptInProcess" @click="onAcceptRequest"> Pagar </button>
-                        <button class="btn btn-default" :disabled="rejectInProcess" @click="onCancelRequest"> Cancelar </button>
+                        <button class="btn btn-accept-request" :disabled="acceptInProcess" @click="onAcceptPayment"> Pagar </button>
+                        <button class="btn btn-default" :disabled="rejectInProcess" @click="rejectPayment"> Cancelar </button>
                     </div>
                 </div>
             </div>
@@ -15,67 +15,91 @@
     </div>
 </template>
 <script>
-import { mapActions, mapGetters } from 'vuex';
-import dialogs from '../services/dialogs.js';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import dialogs from '../services/dialogs'
+import modal from './Modal.vue'
+import spinner from './Spinner.vue'
+import moment from 'moment'
+
 export default {
-    data () {
-        return {
-            acceptInProcess: false,
-            rejectInProcess: false,
-            acceptRequestValue: 0,
-            trip: null
-        };
+    name: 'pending-payment-request',
+    components: {
+        modal,
+        spinner
     },
-    computed: {
-        ...mapGetters({
-            currentUser: 'auth/user'
-        })
-    },
-    mounted () {
-        this.getTrip(this.request.trip_id).then(trip => {
-            console.log('trip to pay', trip);
-            this.trip = trip;
-        });
-    },
-    methods: {
-        ...mapActions({
-            getTrip: 'getTrip',
-            passengerAccept: 'passenger/accept',
-            cancel: 'passenger/cancel'
-        }),
-
-        onAcceptRequest () {
-            let baseUrl = process.env.API_URL;
-            let url = baseUrl + '/transbank?tp_id=' + this.request.id;
-            if (window.location.protocol.indexOf('http') >= 0) {
-                window.location.href = url;
-            } else {
-                var popup = window.open(url, '_blank', 'location=no,hidden=yes,zoom=no');
-                console.log('onAcceptRequest', url);
-                popup.addEventListener('message', (params) => {
-                    console.log('message', params);
-                    popup.close();
-                }, false);
-            }
-        },
-
-        onCancelRequest () {
-            if (window.confirm('¿Estás seguro que deseas bajarte del viaje?')) {
-                this.rejectInProcess = true;
-                this.cancel({ user: this.currentUser, trip: this.trip, cancelTripForPayment: true }).then(() => {
-                    this.rejectInProcess = false;
-                    dialogs.message('Te has bajado del viaje.');
-                }).catch(() => {
-                    this.rejectInProcess = false;
-                });
-            }
+    props: {
+        request: {
+            type: Object,
+            required: true
         }
     },
+    setup(props) {
+        const store = useStore()
+        const router = useRouter()
 
-    props: [
-        // 'user',
-        // 'trip',
-        'request'
-    ]
-};
+        const acceptInProcess = ref(false)
+        const rejectInProcess = ref(false)
+        const showModalPayment = ref(false)
+
+        const user = computed(() => store.getters['auth/user'])
+        const config = computed(() => store.getters['auth/appConfig'])
+        const trip = computed(() => props.request.trip)
+
+        const formatDate = (date, format) => {
+            return moment(date).format(format)
+        }
+
+        const onAcceptPayment = () => {
+            if (user.value.do_not_alert_payment || config.value.disable_user_hints) {
+                acceptPayment()
+            } else {
+                showModalPayment.value = true
+            }
+        }
+
+        const acceptPayment = async () => {
+            if (acceptInProcess.value) return
+            
+            acceptInProcess.value = true
+            try {
+                await store.dispatch('passenger/acceptPayment', props.request)
+                router.push({ name: 'payment', params: { id: props.request.id }})
+            } catch (error) {
+                console.error('Error accepting payment:', error)
+                dialogs.error('No se pudo procesar el pago')
+            } finally {
+                acceptInProcess.value = false
+            }
+        }
+
+        const rejectPayment = async () => {
+            if (rejectInProcess.value) return
+            
+            rejectInProcess.value = true
+            try {
+                await store.dispatch('passenger/rejectPayment', props.request)
+            } catch (error) {
+                console.error('Error rejecting payment:', error)
+                dialogs.error('No se pudo rechazar el pago')
+            } finally {
+                rejectInProcess.value = false
+            }
+        }
+
+        return {
+            acceptInProcess,
+            rejectInProcess,
+            showModalPayment,
+            user,
+            config,
+            trip,
+            formatDate,
+            onAcceptPayment,
+            acceptPayment,
+            rejectPayment
+        }
+    }
+}
 </script>

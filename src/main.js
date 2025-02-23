@@ -2,15 +2,18 @@
 
 import 'babel-polyfill';
 
-import Vue from 'vue';
+import { createApp } from 'vue';
+import { createStore } from 'vuex';
+import { createRouter, createWebHistory } from 'vue-router';
+import { createI18n } from 'vue-i18n';
 import App from './App';
+import router from './router';
+import store from './store';
+import messages from './language/i18n';
 
 import VueResource from 'vue-resource';
 import VueAnalytics from 'vue-analytics';
 import VueMoment from 'vue-moment';
-
-import router from './router';
-import store from './store';
 
 /* eslint-disable no-unused-vars */
 import cordova from './cordova';
@@ -21,15 +24,12 @@ import bootstrapCss from './styles/bootstrap/css/bootstrap.min.css';
 import cssHelpers from './styles/helpers';
 import css from './styles/main';
 
-import VueI18n from 'vue-i18n';
-import messages from './language/i18n';
-
 import bus from './services/bus-event';
 import { DebugApi } from './services/api';
 
 import Vue2Leaflet from 'vue2-leaflet';
 
-import * as VueGoogleMaps from 'vue2-google-maps';
+import * as VueGoogleMaps from 'vue-google-maps';
 
 const ROUTE_BASE = process.env.ROUTE_BASE;
 
@@ -45,27 +45,20 @@ moment.tz.setDefault('America/Argentina');
 require('moment/locale/es');
 require('font-awesome-webpack-4');
 
-Vue.use(VueResource);
+// Create Vue 3 app instance
+const app = createApp(App);
 
-Vue.use(VueI18n);
-const i18n = new VueI18n({
-    locale: 'arg',
-    fallbackLocale: 'arg',
-    messages,
-    silentFallbackWarn: true,
-    numberFormats: {
-        'arg': {
-            currency: {
-                style: 'currency', currency: 'ARS', currencyDisplay: 'symbol'
-            }
-        },
-        'chl': {
-            currency: {
-                style: 'currency', currency: 'CHL', currencyDisplay: 'symbol'
-            }
-        }
-    }
+// Configure plugins
+const i18n = createI18n({
+  locale: 'es', // default locale
+  messages
 });
+
+app.use(store);
+app.use(router);
+app.use(i18n);
+
+Vue.use(VueResource);
 
 Vue.use(VueAnalytics, {
     id: 'UA-40995702-4'
@@ -85,45 +78,36 @@ Vue.use(VueGoogleMaps, {
     }
 }); */
 
-Vue.config.errorHandler = function (err, vm, info) {
-    // handle error
-    // `info` is a Vue-specific error info, e.g. which lifecycle hook
-    // the error was found in. Only available in 2.2.0+
-    let data = {};
-    data.log = err.stack;
-    debugApi.log(data);
+// Global error handler
+app.config.errorHandler = (err, vm, info) => {
+  let data = {};
+  data.log = err.stack;
+  debugApi.log(data);
 };
-window.store = store;
+
+// Initialize store
 if (process.env.SERVE) {
-    console.log('Not running in cordova.');
-    store.dispatch('init');
+  console.log('Not running in cordova.');
+  store.dispatch('init');
 } else {
-    if (process.env.NODE_ENV === 'development') {
-        setTimeout(function () {
-            if (!window.cordova) {
-                console.log('Not running in cordova.');
-                store.dispatch('init');
-            }
-        }, 2000);
-    } else {
-        console.log('no process at all', process.env.NODE_ENV);
-        setTimeout(function () {
-            if (!window.cordova) {
-                console.log('Not running in cordova.');
-                store.dispatch('init');
-            }
-        }, 2000);
-    }
+  if (process.env.NODE_ENV === 'development') {
+    setTimeout(function () {
+      if (!window.cordova) {
+        console.log('Not running in cordova.');
+        store.dispatch('init');
+      }
+    }, 2000);
+  } else {
+    console.log('no process at all', process.env.NODE_ENV);
+    setTimeout(function () {
+      if (!window.cordova) {
+        console.log('Not running in cordova.');
+        store.dispatch('init');
+      }
+    }, 2000);
+  }
 }
 console.log('APP NAME: ' + process.env.TARGET_APP);
 
-bus.on('system-ready', () => {
-    let app = new Vue({
-        el: '#app',
-        router,
-        store,
-        template: '<App/>',
-        components: { App },
-        i18n
-    });
-});
+// Mount app
+app.mount('#app');

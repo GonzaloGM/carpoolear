@@ -1,743 +1,351 @@
 <template>
-    <div class='container'>
-        <template v-if="trip">
-            <div class="trip-detail-component">
-                <div class="row form">
-                    <div ref="rightPanel" class="white-background" :class="themeClasses">
-                        <div class='row'>
-                            <div :class="columnClass[0]" class="column" v-if="columnComponent[0] && columnComponent[0].length">
-                                <template v-for="childComponent in columnComponent[0]">
-                                    <component :is="childComponent" :key="childComponent._scopeId"></component>
-                                </template>
-                            </div>
-                            <div :class="columnClass[1]" class="column" v-if="columnComponent[1] && columnComponent[1].length">
-                                <template v-for="childComponent in columnComponent[1]">
-                                    <component :is="childComponent" :key="childComponent._scopeId"></component>
-                                </template>
-                            </div>
-                            <div :class="columnClass[2]" class="column" v-if="columnComponent[2] && columnComponent[2].length">
-                                <template v-for="childComponent in columnComponent[2]">
-                                    <component :is="childComponent" :key="childComponent._scopeId"></component>
-                                </template>
-                            </div>
-                            <modal :name="'modal'" v-if="showModalRequestSeat" @close="onModalClose" :title="'Carpoodatos'" :body="'Body'">
-                                <h3 slot="header">
-                                    <span>¡Carpoodatos!</span>
-                                    <i v-on:click="onModalClose" class="fa fa-times float-right-close"></i>
-                                </h3>
-                                <div slot="body">
-                                    <div class="text-left carpoodatos">
-                                      <p>Antes de mandar solicitud de asiento, mandale mensaje a la otra persona para coordinar todo lo vinculado al viaje: punto de encuentro, punto de llegada,tamaño de bolsos, contribución para combustible y peajes, etc.</p>
-                                      <p>Si mandaste solicitud de asiento y te aceptan el pedido, se genera el compromiso de viaje. Habilitándose la posibilidad de calificación 24hs después de comenzado el viaje. Tendrán 14 días para calificarse</p>
-                                      <p>Podrán calificarse aunque el viaje se cancele, te bajen o te bajes del viaje.</p>
-                                      <p>No pidas asiento si no tenés seguridad de que vas a viajar, muchas personas también están buscando el mismo viaje que vos. Si ocurriera algo que te impida viajar, avisale lo más rápido que puedas a la persona con que ibas a compartir el viaje.</p>
-                                      <p>Cualquier duda escribinos a <a href="mailto:carpoolear@stsrosario.org.ar">carpoolear@stsrosario.org.ar</a> o nuestras redes sociales.</p>
-                                    </div>
-                                    <div class="check" style="margin-bottom:10px;">
-                                        <label class="check-inline">
-                                            <input type="checkbox" name="acceptPassengerValor" value="0" v-model="acceptPassengerValue"><span> No volver a mostrar mensaje</span>
-                                        </label>
-                                    </div>
-                                    <div class="text-center">
-                                      <template v-if="config.module_coordinate_by_message">
-                                        <button class="btn btn-primary" @click="toMakeRequest" v-if="!owner">Enviar mensaje</button>
-                                      </template>
-                                      <template v-else>
-                                        <button class="btn btn-primary" @click="toMessages" v-if="!owner">Enviar mensaje</button>
-                                        <button class="btn btn-primary" @click="toMakeRequest">Solicitar asiento</button>
-                                      </template>
-                                    </div>
-                                </div>
-                            </modal>
-                            <modal :name="'modal'" v-if="showModalPricing" @close="onModalClose" :title="'Carpoodatos'" :body="'Body'">
-                                <h3 slot="header">
-                                    <span>¡Carpoodatos!</span>
-                                    <i v-on:click="onModalClose" class="fa fa-times float-right-close"></i>
-                                </h3>
-                                <div slot="body">
-                                    <div class="text-left carpoodatos">
-                                        <p>Antes de confirmar el viaje y para evitar sorpresas, tené en cuenta de coordinar y acordar el punto de encuentro, el horario, la disponibilidad de espacio para equipaje, la cantidad total de pasajeros y la contribución por los gastos de combustible y peaje.</p>
-                                        <p>La contribución máxima que puede pedir un conductor es igual a gastos de combustible + peaje dividido la cantidad de personas viajando en el auto. Durante la coordinación previa al viaje, cualquier persona puede pedir hacer la división con tickets de combustible y peaje en mano.</p>
-                                        <p>Cualquier duda escribinos a <a href="mailto:carpoolear@stsrosario.org.ar">carpoolear@stsrosario.org.ar</a> o por mensaje privado a nuestras redes sociales (facebook,instagram y tweeter).</p>
-                                    </div>
-                                    <div class="check" style="margin-bottom:10px;">
-                                        <label class="check-inline">
-                                            <input type="checkbox" name="acceptPricing" value="0" v-model="acceptPricing"><span> No volver a mostrar mensaje</span>
-                                        </label>
-                                    </div>
-                                    <div class="text-center">
-                                        <button class="btn btn-primary" @click="toMessageForce" v-if="!owner">Enviar mensaje</button>
-                                    </div>
-                                </div>
-                            </modal>
-                        </div>
-                        <TripButtons @deleteTrip="deleteTrip()" @toMessages="toMessages()" @onMakeRequest="onMakeRequest()" @cancelRequest="cancelRequest()" :sending="sending" :isPassengersView="isPassengersView" />
-                        <TripStats v-if="!isMobile && tripCardTheme === 'light'" />
-                    </div>
-                    <div :style="calculatedHeight" class="col-xs-24 col-sm-9 col-sm-pull-15 col-md-8 col-md-pull-16 col-lg-7 col-lg-pull-17 driver-container" v-if="!isPassengersView && tripCardTheme !== 'light'">
-                        <TripDriver />
-                    </div>
+    <div class="trips container">
+          <div class="col-xs-24">
+              <Loading :data="pendingPaymentRequests" :hideOnEmpty="true">
+                  <h2 slot="title"> <strong>Pago pendiente</strong> para confirmar </h2>
+                  <div class="request-list">
+                      <PendingPaymentRequest v-for="r in pendingPaymentRequests" v-bind:key="r.id" :request="r"></PendingPaymentRequest>
+                  </div>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando...
+                  </p>
+              </Loading>
+          </div>
+          <div class="col-xs-24">
+              <Loading :data="pendingRequest" :hideOnEmpty="true">
+                  <h2 slot="title"> Pendientes <strong>de contestar</strong> </h2>
+                  <div class="request-list">
+                      <PendingRequest v-for="r in pendingRequest" v-bind:key="r.id" :user="r.user" :trip="findTrip(r.trip_id)"></PendingRequest>
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No hay pedientes de contestar</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando...
+                  </p>
+              </Loading>
+          </div>
+  
+          <div class="col-xs-24">
+              <modal :name="'modal'" v-if="showModalPendingRates" @close="toPendingRates" :title="'Carpoodatos'" :body="'Body'" :hide-footer="true">
+                  <h3 slot="header">
+                      <span>¡Carpoodatos!</span>
+                      <i v-on:click="toPendingRates" class="fa fa-times float-right-close"></i>
+                  </h3>
+                  <div slot="body">
+                      <div class="text-left carpoodatos">
+                        <p>
+                          <b>Es muy muy importante calificar</b>. Las calificaciones permiten conocernos mejor y poder decidir a la hora de compartir un viaje, son muy importantes para toda la comunidad carpoolera.
+                        </p>
+                        <p>
+                          <b>Tomate el tiempo para calificar pero no tanto...</b>. Tenés 14 días para calificar contando a partir del momento en que se habilita la posibilidad, 24hs posteriores al comienzo del viaje.
+                        </p>
+                        <p>
+                          <b>No se borra con el codo ni hay líquido corrector</b>. Tené en cuenta que no podés ni borrar ni editar la calificación que hagas.
+                        </p>
+                        <p>
+                          <b>Decí lo que pensás :D</b>. Las calificación que vos hagas y la que recibas de la otra persona se mostrarán al mismo tiempo en los perfiles. Nunca se mostrará una antes que la otra. Solamente cuando la otra persona te califique o se venza el plazo de tiempo para calificar, aparecerá la calificación en el perfil.
+                        </p>
+                        <p>Cualquier duda escribinos a <a href="mailto:carpoolear@stsrosario.org.ar">carpoolear@stsrosario.org.ar</a> o nuestras redes sociales.</p>
+                      </div>
+                      <div class="check" style="margin-bottom:10px;">
+                          <label class="check-inline">
+                              <input type="checkbox" name="pendingRatesValor" value="0" v-model="pendingRatesValue"><span> No volver a mostrar mensaje</span>
+                          </label>
+                      </div>
+                      <div class="text-center">
+                        <button class="btn btn-accept-request" @click="toPendingRates"> !Entiendo! </button>
+                      </div>
+                  </div>
+              </modal>
+              <modal :name="'modal'" v-if="showModalRequestDonation" @close="onModalClose" :title="'Test'" :body="'Body'">
+                  <h3 slot="header">
+                      <span>Doná a Carpoolear</span>
+                      <br class="hidden-sm hidden-md hidden-lg">
+                      <small>un proyecto de </small>
+                      <img width="90" alt="STS Rosario" src="https://carpoolear.com.ar/img/logo_sts_nuevo_color.png">
+                  </h3>
+                  <div slot="body" class="donation">
+                      <div class="text-center donation-text">
+                          <p>Buenisimo que hayas encontrado con quien compartir tu viaje!</p>
+                          Ayudanos a seguir siendo una plataforma abierta, colaborativa y sin fines de lucro
+                      </div>
+                      <div class="radio">
+                          <label class="radio-inline">
+                              <input type="radio" name="donationValor" id="donation50" value="200" v-model="donateValue"><span>$ 200</span>
+                          </label>
+                          <label class="radio-inline">
+                              <input type="radio" name="donationValor" id="donation100" value="400" v-model="donateValue"><span>$ 400</span>
+                          </label>
+                          <label class="radio-inline">
+                              <input type="radio" name="donationValor" id="donation200" value="1000" v-model="donateValue"><span>$ 1000</span>
+                          </label>
+                          <label class="radio-inline">
+                              <input type="radio" name="donationValor" id="donation500" value="0" v-model="donateValue"><span>Elegí tu propia aventura (solo mensual)</span>
+                          </label>
+                      </div>
+                      <div>
+                          <button class="btn btn-success btn-unica-vez" @click="onDonateOnceTime">ÚNICA VEZ</button>
+                          <button class="btn btn-info btn-mensualmente" @click="onDonateMonthly">MENSUAL <br />(cancelá cuando quieras)</button>
+                      </div>
+                      <div class="text-center">
+                          <br />
+                          <a href="/donar" target="_blank" v-on:click.prevent="onOpenLink('https://carpoolear.com.ar/donar')">
+                              Conocé más acerca de por qué donar
+                          </a>
+                      </div>
+                  </div>
+              </modal>
+              <Loading :data="pendingRates" :hideOnEmpty="true">
+                  <h2 slot="title"> Calificaciones <strong>pendientes </strong></h2>
+                  <div class="request-list">
+                      <RatePending v-for="rate in pendingRates" v-bind:key="rate.id" :rate="rate" @rated="onUserRated" />
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No hay calificaciones pendientes</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando calificaciones ...
+                  </p>
+              </Loading>
+          </div>
+  
+          <div class="col-xs-24">
+              <h2>Mis <strong>próximos</strong> viajes</h2>
+              <Loading :data="trips">
+                  <div class="trips-list">
+                      <Trip v-for="trip in trips" v-bind:key="trip.id" :trip="trip" :user="user" :enableChangeSeats="true"></Trip>
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No tenés viajes creados</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando viajes ...
+                  </p>
+              </Loading>
+          </div>
+  
+          <div class="col-xs-24">
+              <Loading :data="passengerTrips" :hideOnEmpty="true">
+                  <h2 slot="title" > Viajes a los que <strong>estoy subido</strong> </h2>
+                  <div class="trips-list">
+                      <Trip v-for="trip in passengerTrips" v-bind:key="trip.id" :trip="trip" :user="user"></Trip>
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No estas subido a ningún viaje.</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando viajes ...
+                  </p>
+              </Loading>
+          </div>
+          <div class="col-xs-24" v-if="subscriptions && subscriptions.length" id="suscriptions">
+              <Loading :data="subscriptions" :hideOnEmpty="true">
+                  <h2 slot="title" > Suscripciones a viajes</h2>
+                  <div class="trips-list row">
+                      <div class="col-xs-24 col-md-12" v-for="subs in subscriptions" v-bind:key="subs.id" :key="subs.id">
+                          <subscriptionItem :subscription="subs" :user="user"></subscriptionItem>
+                      </div>
+  
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No tienes ninguna suscripción.</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando suscripciones ...
+                  </p>
+              </Loading>
+          </div>
+  
+  
+          <div class="col-xs-24" v-if="oldTrips">
+              <h2>Mis viajes pasados</h2>
+              <Loading :data="oldTrips">
+                  <div class="trips-list">
+                      <Trip v-for="trip in oldTrips" v-bind:key="trip.id" :trip="trip" :user="user"></Trip>
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No has realizado ningún viaje aún</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando viajes ...
+                  </p>
+              </Loading>
+          </div>
+  
+          <div class="col-xs-24" v-if="oldPassengerTrips">
+              <Loading :data="oldPassengerTrips" :hideOnEmpty="true">
+                  <h2 slot="title" > Viajes a los que me <strong>subí</strong> </h2>
+                  <div class="trips-list">
+                      <Trip v-for="trip in oldPassengerTrips" v-bind:key="trip.id" :trip="trip" :user="user"></Trip>
+                  </div>
+                  <p slot="no-data" class="alert alert-warning"  role="alert">No te has subido a ningún viaje.</p>
+                  <p slot="loading" class="alert alert-info" role="alert">
+                      <img src="https://carpoolear.com.ar/static/img/loader.gif" alt="" class="ajax-loader" />
+                      Cargando viajes ...
+                  </p>
+              </Loading>
+          </div>
+  
+      </div>
+  </template>
+  
+  <script>
+  import { ref, computed, onMounted } from 'vue'
+  import { useStore } from 'vuex'
+  import subscriptionItem from '../sections/SubscriptionItem.vue'
+  import Trip from '../sections/Trip.vue'
+  import Loading from '../Loading.vue'
+  import PendingRequest from '../PendingRequest'
+  import PendingPaymentRequest from '../PendingPaymentRequest'
+  import RatePending from '../RatePending'
+  import Tab from '../elements/Tab'
+  import modal from '../Modal'
+  import dialogs from '../../services/dialogs.js'
+  
+  export default {
+      name: 'my-trips',
+      components: {
+          subscriptionItem,
+          Trip,
+          Loading,
+          PendingRequest,
+          PendingPaymentRequest,
+          RatePending,
+          Tab,
+          modal
+      },
+      setup() {
+          const store = useStore()
+          
+          const showModalRequestDonation = ref(false)
+          const donateValue = ref(0)
+          const modalTripId = ref(0)
+          const showModalPendingRates = ref(false)
+          const pendingRatesValue = ref(0)
+          const alreadyAlerted = ref(false)
 
-                    <div class="col-xs-24 structure-div"  v-if="!isPassengersView">
-                        <div class="col-xs-24 col-sm-12 col-md-9 matcheo-passengers"  v-if="matchingUsers && matchingUsers.length > 0">
-                            <div>
-                                <div v-if="owner">
-                                    <h3 class="title-margined">
-                                        Matcheos del viaje
-                                    </h3>
-                                    <div class="row matching-user-list">
-                                        <div v-for="p in matchingUsers" class="list-item col-sm-24" v-bind:key="p.id">
-                                            <div class="passenger-match">
-                                                <input type="checkbox" v-model="selectedMatchingUser" v-bind:id="p.id" v-bind:value="p.id">
-                                                <span @click="toUserProfile(p)" class="trip_driver_img circle-box passenger trip_passenger_image" v-imgSrc:profile="p.image"></span>
-                                                <a href="#" @click="toUserProfile(p)" class="trip_passenger_name">
-                                                    {{ p.name }}
-                                                </a>
-                                                <button @click="toUserMessages(p)" aria-label="Ir a mensajes" class="trip_passenger-chat">
-                                                        <i class="fa fa-comments" aria-hidden="true"></i>
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <small>
-                                                    Viaja el {{ p.tripMatch.trip_date | moment('DD/MM') }}
-                                                    <strong>{{ p.tripMatch.trip_date | moment('HH:mm') }}</strong>
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="form-inline col-xs-24 send_to_all-form">
-                                            <div class="input-group">
-                                                <label for="message_all" class="sr-only">Mensaje para los usuarios seleccionados</label>
-                                                <input type="text" id="message_all" class="form-control" placeholder="Envía a los seleccionados" v-model="messageToUsers">
-                                                <span class="input-group-btn">
-                                                    <button class="btn btn-success" @click="onSendToAll">
-                                                        <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                                                    </button>
-                                                </span>
-                                            </div><!-- /input-group -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <l-map :zoom="zoom" :center="center" style="width: calc(100% + 20px); height: 461px; overflow: hidden; margin-left: -10px; z-index: 0;" ref="map">
-                            <l-tile-layer :url="url" :attribution="attribution"></l-tile-layer>
-                        </l-map>
-                    </div>
-                </div>
-            </div>
-        </template>
-        <template v-else>
-            <div>
-                Buscando el viaje, aguarde un segundo.
-            </div>
-        </template>
-    </div>
-</template>
-<script>
-import { mapGetters, mapActions } from 'vuex';
-import router from '../../router';
-import bus from '../../services/bus-event';
-import svgItem from '../SvgItem';
-import modal from '../Modal';
-import moment from 'moment';
-import dialogs from '../../services/dialogs.js';
-import TripLocation from '../elements/TripLocation';
-import TripDriver from '../elements/TripDriver';
-import TripDate from '../elements/TripDate';
-import TripSeats from '../elements/TripSeats';
-import TripData from '../elements/TripData';
-import TripStats from '../elements/TripStats';
-import TripDescription from '../elements/TripDescription';
-import TripShare from '../elements/TripShare';
-import TripPassengers from '../elements/TripPassengers';
-import TripButtons from '../elements/TripButtons';
+          const trips = computed(() => store.getters['myTrips/myTrips'])
+          const passengerTrips = computed(() => store.getters['myTrips/passengerTrips'])
+          const pendingRates = computed(() => store.getters['rates/pendingRates'])
+          const pendingRequest = computed(() => store.getters['passenger/pendingRequest'])
+          const pendingPaymentRequests = computed(() => store.getters['passenger/pendingPaymentRequests'])
+          const user = computed(() => store.getters['auth/user'])
+          const oldTrips = computed(() => store.getters['myTrips/myOldTrips'])
+          const oldPassengerTrips = computed(() => store.getters['myTrips/passengerOldTrips'])
+          const subscriptions = computed(() => store.getters['subscriptions/subscriptions'])
+          const config = computed(() => store.getters['auth/appConfig'])
 
-import Vue from 'vue';
-import VueRouter from 'vue-router';
-import VueHead from 'vue-head';
-import { LMap, LTileLayer } from 'vue2-leaflet';
-import 'leaflet-routing-machine';
-Vue.use(VueHead);
-Vue.use(VueRouter);
+          onMounted(async () => {
+              await store.dispatch('myTrips/tripAsDriver')
+              await store.dispatch('myTrips/tripAsPassenger')
+              await store.dispatch('rates/pendingRate')
+              await store.dispatch('passenger/getPendingRequest').then(() => {
+                  store.dispatch('myTrips/oldTripsAsDriver')
+                  store.dispatch('myTrips/oldTripsAsPassenger')
+              })
+              await store.dispatch('passenger/getPendingPaymentRequests')
+              await store.dispatch('subscriptions/findSubscriptions')
+          })
 
-export default {
-    name: 'trip',
-    data () {
-        return {
-            sending: {
-                deleteAction: false,
-                requestAction: false,
-                sendMessageAction: false
-            },
-            carpoolear_logo: process.env.ROUTE_BASE + 'static/img/carpoolear_logo.png',
-            zoom: 4,
-            center: { lat: -29.0, lng: -60.0 },
-            points: [
-                {
-                    name: '',
-                    place: null,
-                    json: null,
-                    location: null
-                },
-                {
-                    name: '',
-                    place: null,
-                    json: null,
-                    location: null
-                }
-            ],
-            matchingUsers: [],
-            messageToUsers: '',
-            selectedMatchingUser: [],
-            url: 'https://{s}.tile.osm.org/{z}/{x}/{y}.png',
-            attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
-            showModalRequestSeat: false,
-            showModalPricing: false,
-            acceptPassengerValue: 0,
-            acceptPricing: 0,
-            calculatedHeight: {}
-        };
-    },
+          const findTrip = (id) => {
+              if (trips.value) {
+                  return trips.value.find(item => item.id === id)
+              }
+          }
 
-    head: {
-        /* title: function () {
-            return {
-                inner: 'Viaje'
-            };
-        }, */
-        meta: function () {
-            if (this.trip) {
-                return [
-                    { p: 'og:description', c: this.trip.description },
-                    { p: 'og:title', c: this.trip.points[0].json_address.ciudad + ' -> ' + this.trip.points[this.trip.points.length - 1].json_address.ciudad + ' | ' + moment(this.trip.trip_date).format('dddd DD/MM hh:mm') },
-                    { p: 'og:image', c: this.carpoolear_logo }
-                ];
-            } else {
-                return [];
-            }
-        }
-    },
+          const updateScroll = () => {
+              if (route.query.loc) {
+                  let domNode = document.getElementById(route.query.loc)
+                  window.scrollTo(0, domNode.offsetTop - 150)
+              }
+          }
 
-    methods: {
-        ...mapActions({
-            getTrip: 'getTrip',
-            lookConversation: 'conversations/createConversation',
-            selectConversation: 'conversations/select',
-            make: 'passenger/makeRequest',
-            cancel: 'passenger/cancel',
-            remove: 'trips/remove',
-            searchMatchers: 'trips/searchMatchers',
-            sendToAll: 'conversations/sendToAll',
-            changeProperty: 'profile/changeProperty',
-            removeTrip: 'myTrips/removeTrip',
-            searchAgain: 'trips/searchAgain'
-        }),
-        calculateHeight () {
-            this.$nextTick(() => {
-                this.calculatedHeight = !this.isMobile ? { 'min-height': this.$refs.rightPanel ? this.$refs.rightPanel.clientHeight + 'px' : '440px' } : {};
-            });
-        },
-        profileComplete () {
-            if (!this.user.image || this.user.image.length === 0 || !this.user.description || this.user.description.length === 0) {
-                router.replace({ name: 'profile_update' });
-            } else {
-                return true;
-            }
-        },
-        deleteTrip () {
-            if (window.confirm(this.$t('seguroCancelar'))) {
-                this.$set(this.sending, 'deleteAction', true);
-                this.remove(this.trip.id).then(() => {
-                    dialogs.message(this.$t('viajeCancelado'), { estado: 'success' });
-                    this.$router.replace({ name: 'trips' });
-                }).catch((error) => {
-                    console.error(error);
-                    dialogs.message(this.$t('errorAlCancelar'), { estado: 'error' });
-                    this.$set(this.sending, 'deleteAction', false);
-                });
-            }
-        },
-        loadTrip () {
-            this.getTrip(this.id).then(trip => {
-                // this.trip = trip;
-                this.points = trip.points;
-                var self = this;
-                this.calculateHeight();
-                setTimeout(() => { self.renderMap(); }, 500);
-                if (this.owner) {
-                    this.searchMatchers({ trip: this.trip }).then(users => {
-                        this.matchingUsers = users;
-                        if (users && users.length) {
-                            this.selectedMatchingUser = users.map(u => u.id);
-                            // console.log('selectedMatchingUser', users);
-                        }
-                    });
-                }
-            }).catch(error => {
-                if (error) {
-                    if (error.status === 422) {
-                        if (error.data && error.data.errors && error.data.errors.error && error.data.errors.error.length) {
-                            for (let i = 0; i < error.data.errors.error.length; i++) {
-                                let errorMessage = error.data.errors.error[i];
-                                if (errorMessage === 'trip_not_foound') {
-                                    this.removeTrip(this.id);
-                                    this.searchAgain();
-                                }
-                            }
-                        }
-                    }
-                    router.replace({ name: 'trips' });
-                }
-            });
-        },
-        toMessageForce () {
-            this.toMessages(true);
-        },
+          const onDonateOnceTime = () => {
+              if (donateValue.value > 0) {
+                  let url = 'http://mpago.la/jgap'
+                  switch (donateValue.value) {
+                      case '200':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-f94a3145-7336-4d79-9eb9-76c5402894fa'
+                          break
+                      case '400':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-42de1d74-f967-455f-80bf-a7a77650db06'
+                          break
+                      case '1000':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-c693bd88-7fd4-49d8-9f22-2b80151d184e'
+                          break
+                  }
+                  window.open(url, '_blank')
+                  showModalRequestDonation.value = false
+                  store.dispatch('profile/registerDonation', {
+                      has_donated: 1,
+                      has_denied: 0,
+                      ammount: parseFloat(donateValue.value),
+                      trip_id: modalTripId.value
+                  })
+              } else {
+                  dialogs.message('Tienes que seleccionar un valor de donación.', { duration: 10, estado: 'error' })
+              }
+          }
 
-        toMessages (force) {
-            if (this.acceptPricing) {
-                let data = {
-                    property: 'do_not_alert_pricing',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-            if (this.user.do_not_alert_pricing || this.config.disable_user_hints || force) {
-                if (this.acceptPassengerValue) {
-                    let data = {
-                        property: 'do_not_alert_request_seat',
-                        value: 1
-                    };
-                    this.changeProperty(data).then(() => {
-                        console.log('do not alert success');
-                    });
-                }
+          const onDonateMonthly = () => {
+              if (donateValue.value > 0) {
+                  let url = 'http://mpago.la/2XdoxpF'
+                  switch (donateValue.value) {
+                      case '200':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-f94a3145-7336-4d79-9eb9-76c5402894fa'
+                          break
+                      case '400':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-42de1d74-f967-455f-80bf-a7a77650db06'
+                          break
+                      case '1000':
+                          url = 'https://www.mercadopago.com.ar/checkout/v1/redirect?preference-id=201279444-c693bd88-7fd4-49d8-9f22-2b80151d184e'
+                          break
+                  }
+                  window.open(url, '_blank')
+                  showModalRequestDonation.value = false
+                  store.dispatch('profile/registerDonation', {
+                      has_donated: 1,
+                      has_denied: 0,
+                      ammount: parseFloat(donateValue.value),
+                      trip_id: modalTripId.value
+                  })
+              } else {
+                  dialogs.message('Tienes que seleccionar un valor de donación.', { duration: 10, estado: 'error' })
+              }
+          }
 
-                if (this.profileComplete()) {
-                    this.toUserMessages(this.trip.user);
-                }
-            } else {
-                this.showModalPricing = true;
-            }
-        },
-
-        toUserMessages (user) {
-            this.$set(this.sending, 'sendMessageAction', true);
-            let data = {
-                user: user,
-                tripId: this.trip.is_passenger ? undefined : this.trip.id
-            };
-            this.lookConversation(data).then(conversation => {
-                console.log(conversation);
-                router.push({ name: 'conversation-chat', params: { id: conversation.id } });
-            }).catch(error => {
-                console.error(error);
-                this.$set(this.sending, 'sendMessageAction', false);
-            });
-        },
-
-        toUserProfile (user) {
-            router.replace({
-                name: 'profile',
-                params: {
-                    id: user.id,
-                    userProfile: user,
-                    activeTab: 1
-                }
-            });
-        },
-
-        onMakeRequest () {
-            if (this.profileComplete()) {
-                if (this.user.do_not_alert_request_seat || this.config.disable_user_hints) {
-                    this.toMakeRequest();
-                } else {
-                    this.showModalRequestSeat = true;
-                }
-            }
-        },
-
-        toMakeRequest () {
-            if (this.acceptPassengerValue) {
-                let data = {
-                    property: 'do_not_alert_request_seat',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-            if (this.profileComplete()) {
-                if (this.config.module_coordinate_by_message) {
-                    this.toMessages();
-                    return;
-                }
-                this.$set(this.sending, 'requestAction', true);
-                this.showModalRequestSeat = false;
-                this.make(this.trip.id).then((response) => {
-                    this.trip.request = 'send';
-                }).finally(() => {
-                    this.$set(this.sending, 'requestAction', false);
-                });
-            }
-        },
-
-        cancelRequest () {
-            if (window.confirm('¿Estás seguro que deseas bajarte del viaje?')) {
-                this.$set(this.sending, 'requestAction', true);
-                this.cancel({ user: this.user, trip: this.trip }).then(() => {
-                    dialogs.message('Te has bajado del viaje.');
-                    if (this.trip.request === 'send') {
-                        this.trip.request = '';
-                    }
-                }).catch((error) => {
-                    console.error(error);
-                    dialogs.message('Ocurrió un problema al solicitar, por favor aguarde unos instante e intentelo nuevamente.', { estado: 'error' });
-                }).finally(() => {
-                    this.$set(this.sending, 'requestAction', false);
-                });
-            }
-        },
-
-        onBackClick () {
-            router.back();
-        },
-
-        renderMap () {
-            if (this.$refs.map) {
-                let map = this.$refs.map.mapObject;
-                /* eslint-disable no-undef */
-                let points = this.trip.points.map(point => L.latLng(point.lat, point.lng));
-                let control = L.Routing.control({
-                    waypoints: points,
-                    language: 'es'
-                });
-                control.addTo(map);
-            }
-        },
-
-        restoreData (trip) {
-            this.points = [];
-            trip.points.forEach(p => {
-                let point = {
-                    name: p.address,
-                    json: p.json_address,
-                    location: {
-                        lat: p.lat,
-                        lng: p.lng
-                    },
-                    place: null
-                };
-                this.points.push(point);
-            });
-            this.date = trip.trip_date.split(' ')[0];
-            this.time = trip.trip_date.split(' ')[1];
-            this.trip.is_passenger = trip.is_passenger ? 1 : 0;
-            this.trip.total_seats = trip.total_seats;
-            this.trip.friendship_type_id = trip.friendship_type_id;
-            this.trip.distance = trip.distance;
-            this.trip.description = trip.description;
-
-            this.calcRoute();
-        },
-
-        calcRoute () {
-            for (let i = 0; i < this.points.length; i++) {
-                if (!this.points[i].name) {
-                    return;
-                }
-            }
-        },
-        onSendToAll () {
-            let users = this.matchingUsers.filter(u => this.selectedMatchingUser.indexOf(u.id) >= 0);
-            console.log(users, this.messageToUsers);
-            if (this.messageToUsers && users && users.length) {
-                this.sendToAll({
-                    message: this.messageToUsers,
-                    users: users
-                }).then(() => {
-                    this.messageToUsers = '';
-                    dialogs.message('El mensaje fue enviado.');
-                });
-            }
-        },
-        onModalClose () {
-            if (this.acceptPassengerValue) {
-                let data = {
-                    property: 'do_not_alert_request_seat',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not alert success');
-                });
-            }
-            if (this.acceptPricing) {
-                let data = {
-                    property: 'do_not_alert_pricing',
-                    value: 1
-                };
-                this.changeProperty(data).then(() => {
-                    console.log('do not prcing success');
-                });
-            }
-            this.showModalRequestSeat = false;
-            this.showModalPricing = false;
-        }
-    },
-
-    mounted () {
-        this.loadTrip();
-        bus.on('back-click', this.onBackClick);
-        bus.on('calculate-height', this.calculateHeight);
-        this.$nextTick(() => {
-            this.calculateHeight();
-        });
-    },
-
-    beforeDestroy () {
-        bus.off('back-click', this.onBackClick);
-        bus.off('calculate-height', this.calculateHeight);
-    },
-
-    watch: {
-        'id': function (value) {
-            this.loadTrip();
-        },
-        'resolutionWidth': function () {
-            this.calculateHeight();
-        }
-    },
-
-    computed: {
-        ...mapGetters({
-            user: 'auth/user',
-            trip: 'trips/currentTrip',
-            config: 'auth/appConfig',
-            tripCardTheme: 'auth/tripCardTheme',
-            isMobile: 'device/isMobile',
-            resolution: 'device/resolution'
-        }),
-        resolutionWidth () {
-            return this.resolution.width;
-        },
-        themeClasses () {
-            return this.tripCardTheme === 'light' ? 'col-xs-24' : 'col-xs-24 col-sm-push-9 col-sm-15 col-md-push-8 col-md-16 col-lg-17 col-lg-push-7';
-        },
-        columnClass () {
-            return this.tripCardTheme === 'light' ? ['col-sm-8 col-md-8 col-lg-7', 'col-sm-9 col-md-10 col-lg-11', 'col-sm-7 col-md-6 col-lg-5'] : ['col-sm-14 col-md-14', 'col-sm-10 col-md-10'];
-        },
-        columnComponent () {
-            if (this.tripCardTheme === 'light' && this.isMobile) {
-                return [
-                    [TripDriver, TripLocation],
-                    [TripData, TripStats, TripDescription, TripShare, TripPassengers]
-                ];
-            } else if (this.tripCardTheme === 'light') {
-                return [
-                    [TripDriver, TripDescription],
-                    [TripLocation, TripDate, TripSeats, TripPassengers],
-                    [TripData]
-                ];
-            } else {
-                return [
-                    [TripLocation, TripDate, TripSeats],
-                    [TripData, TripStats, TripShare, TripPassengers]
-                ];
-            }
-        },
-        owner () {
-            return this.trip && this.user && this.user.id === this.trip.user.id;
-        },
-        isPassengersView () {
-            if (this.location) {
-                return this.location === 'passenger';
-            }
-            return false;
-        }
-    },
-
-    components: {
-        svgItem,
-        LMap,
-        LTileLayer,
-        modal,
-        TripLocation,
-        TripDriver,
-        TripDate,
-        TripSeats,
-        TripData,
-        TripStats,
-        TripDescription,
-        TripShare,
-        TripPassengers,
-        TripButtons
-    },
-
-    props: [
-        'id',
-        'location'
-    ]
-};
-</script>
-
-<style scoped>
-    .trip-detail-component .structure-div {
-        margin-top: 1rem;
-        z-index: 0;
-        position: relative;
-        min-height: 418px;
-        /* overflow: hidden; */
-        top: 0;
-    }
-    .trip-detail-component .driver-container {
-        margin-top: 0;
-    }
-    .trip-detail-component .driver-container::after {
-        top: -23px;
-        left: 4.4em;
-        border: solid transparent;
-        content: " ";
-        height: 0;
-        width: 0;
-        position: absolute;
-        pointer-events: none;
-        border-color: rgba(136, 183, 213, 0);
-        border-bottom-color: var(--secondary-background);
-        border-width: 12px;
-        margin-left: -12px;
-        z-index: 1;
-    }
-    .container {
-        padding-top: 0;
-    }
-    .trip-detail-component .column {
-        padding: 0 4em;
-    }
-    .trip-detail-component .column:first-of-type {
-        padding: 0 1em;
-    }
-    .trip-detail-component .white-background {
-        padding-top: 1.1rem;
-    }
-    .matcheo-passengers {
-        background: #FFF;
-        box-shadow: 0 0 4px 1px #CCC;
-        border-radius: .4em;
-        position: absolute;
-        left: 1em;
-        top: 1em;
-        max-height: 400px;
-        z-index: 100;
-    }
-    .matcheo-passengers h3 {
-        font-size: 1.4em;
-    }
-    .matcheo-passengers .list-item {
-        border: 0;
-    }
-    .matcheo-passengers .list-item .trip_passenger_name {
-        color: var(--trip-mostly-free-color);
-        font-weight: bold;
-    }
-    .matcheo-passengers .passenger-match {
-        margin: 0 .5em;
-        padding: .5em 0;
-    }
-    .passenger-match input {
-        margin-right: 1em;
-    }
-    .passenger-match button {
-        color: var(--secondary-background);
-    }
-
-    .passenger-match .trip_driver_img.circle-box.passenger {
-        border: 2px solid var(--trip-almost-fill-color);
-    }
-        .send_to_all-form {
-        padding: 1em;
-    }
-    .form-inline .input-group {
-        width: 100%;
-    }
-    .send_to_all-form .btn {
-        min-width: 100%;
-    }
-    .matching-user-list {
-        max-height: 270px;
-        overflow-y: auto;
-    }
-    .matching-user-list small {
-        margin-left: 50px;
-    }
-    .matching-user-list .list-item:after {
-        content: " ";
-        display: block;
-        width: 90%;
-        margin: 0 auto;
-        border-bottom: 1px solid #CCC;
-        margin-top: .5rem;
-    }
-    @media only screen and (min-width: 400px) and (max-width: 767px) {
-        .trip-detail-component .structure-div {
-            top: -15px;
-        }
-    }
-    @media only screen and (min-width: 768px) {
-        .container {
-            padding-top: 1.5em;
-        }
-        .trip-detail-component .white-background {
-            padding-top: 0;
-            min-height: 440px;
-        }
-        .trip-detail-component .driver-container {
-            margin-top: 0;
-        }
-        .trip-detail-component .driver-container::after {
-            top: 36px;
-            right: -23px;
-            left: unset;
-            border-color: rgba(136, 183, 213, 0);
-            border-left-color: var(--secondary-background);
-            border-width: 12px;
-            margin-left: -12px;
-            z-index: 1;
-        }
-        .trip-detail-component .structure-div {
-            margin-top: 0;
-            margin-bottom: 2rem;
-        }
-        .trip-detail-component .column,
-        .trip-detail-component .column:first-of-type {
-            padding: 2em 1em 2em 1em;
-        }
-    }
-    @media only screen and (max-width: 768px) {
-        .trip-detail-component .driver-container {
-            border-radius: 0;
-        }
-        .trip-detail-component .structure-div {
-            overflow: visible;
-            padding: 0;
-            margin-bottom: 3.5em;
-        }
-        .matcheo-passengers {
-            position: static;
-            left: 0;
-            top: 0;
-            max-height: auto;
-            float: none;
-            margin: 1.5rem 0 -1rem 0;
-            border-radius: 0;
-            padding-bottom: 1em;
-        }
-        .matcheo-passengers .title-margined {
-            margin: 0;
-            padding: 1em 0;
-        }
-    }
-</style>
+          return {
+              showModalRequestDonation,
+              donateValue,
+              modalTripId,
+              showModalPendingRates,
+              pendingRatesValue,
+              alreadyAlerted,
+              trips,
+              passengerTrips,
+              pendingRates,
+              pendingRequest,
+              pendingPaymentRequests,
+              user,
+              oldTrips,
+              oldPassengerTrips,
+              subscriptions,
+              config,
+              findTrip,
+              updateScroll,
+              onDonateOnceTime,
+              onDonateMonthly
+          }
+      }
+  }
+  </script>
+  
+  <style scoped>
+      h2 {
+          font-weight: 300;
+      }
+      .donation-text {
+          margin-bottom: 1.5rem;
+      }
+      .donation-text p {
+          margin-top: -1rem;
+          font-size: 1.1rem;
+          margin-bottom: .5rem;
+      }
+  </style>

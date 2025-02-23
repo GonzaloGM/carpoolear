@@ -1,24 +1,32 @@
 <script>
-import { Line } from 'vue-chartjs';
+import { watch, computed } from 'vue'
+import { Line } from 'vue-chartjs'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js'
+
+// Register ChartJS components
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
 export default {
     name: 'linechart',
     extends: Line,
     props: ['chartdata', 'options'],
-    computed: {
-        chartInfo: function () {
-            return this.chartdata;
+    setup(props) {
+        const chartInfo = computed(() => props.chartdata)
+
+        watch(chartInfo, () => {
+            renderChart()
+        })
+
+        const renderChart = () => {
+            this.renderChart(chartInfo.value, props.options)
         }
+
+        return { chartInfo }
     },
-    watch: {
-        chartInfo: function () {
-            this.renderChart(this.chartInfo, this.options);
-        }
-    },
-    mounted () {
-        this.renderChart(this.chartInfo, this.options);
+    mounted() {
+        this.renderChart(this.chartInfo, this.options)
     }
-};
+}
 </script>
 
 <style>

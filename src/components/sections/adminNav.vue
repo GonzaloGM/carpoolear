@@ -19,18 +19,20 @@
         </div>
     </div>
 </template>
+
 <script>
+import { ref } from 'vue'
+
 export default {
     name: 'admin-nav',
-    data () {
-        return {
-            selected: ''
-        };
-    },
-    mounted () {
+    setup() {
+        const selected = ref('')
 
+        return {
+            selected
+        }
     }
-};
+}
 </script>
 
 <style scoped>

@@ -38,83 +38,92 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex';
+import { ref, computed, onMounted, watch } from 'vue'
+import { useStore } from 'vuex'
 
 export default {
     name: 'onBoarding',
-    data () {
-        return {
-            cardNumber: 1,
-            cardsLength: 0,
-            onBoardingVisibilityClass: '',
-            styleContainerObject: {},
-            styleCardObject: {}
-        };
-    },
-    mounted () {
-        setTimeout(() => {
-            this.onBoardingVisibilityClass = 'show';
-            this.$refs.overlay.addEventListener('transitionend', this.firstTransitionEnd, false);
-        }, 600);
-        document.documentElement.style.overflow = 'hidden';
-        document.body.scroll = 'no';
-    },
-    computed: {
-        ...mapGetters({
-            appConfig: 'auth/appConfig'
-        })
-    },
-    methods: {
-        ...mapActions({
-            setFirstTimeAppOpenInDevice: 'device/setFirstTimeAppOpenInDevice'
-        }),
-        srcCard (number) {
-            let src = process.env.ROUTE_BASE + `static/img/onBoarding/${process.env.TARGET_APP}_placa${number}.jpg`;
-            console.log('src', src);
-            return src;
-        },
-        firstTransitionEnd () {
-            this.cardsLength = this.appConfig.module_on_boarding_new_user && this.appConfig.module_on_boarding_new_user.cards;
-            this.styleContainerObject = {
-                width: `${this.cardsLength * 100}%`,
+    setup() {
+        const store = useStore()
+        const overlay = ref(null)
+        const cardNumber = ref(1)
+        const cardsLength = ref(0)
+        const onBoardingVisibilityClass = ref('')
+        const styleContainerObject = ref({})
+        const styleCardObject = ref({})
+
+        const appConfig = computed(() => store.getters['auth/appConfig'])
+
+        const srcCard = (number) => {
+            let src = process.env.ROUTE_BASE + `static/img/onBoarding/${process.env.TARGET_APP}_placa${number}.jpg`
+            console.log('src', src)
+            return src
+        }
+
+        const firstTransitionEnd = () => {
+            cardsLength.value = appConfig.value.module_on_boarding_new_user && appConfig.value.module_on_boarding_new_user.cards
+            styleContainerObject.value = {
+                width: `${cardsLength.value * 100}%`,
                 transform: 'translate(0)',
                 transition: 'transform 0.5s'
-            };
-            this.styleCardObject = {
+            }
+            styleCardObject.value = {
                 width: '100vw'
-            };
-            this.$refs.overlay.removeEventListener('transitionend', this.firstTransitionEnd, false);
-        },
-        complete () {
-            this.cardsLength = 0;
-            this.styleContainerObject = {
-                transition: 'none'
-            };
-            this.styleCardObject = {};
-            this.$nextTick(() => {
-                this.styleContainerObject = {};
-                this.$nextTick(() => {
-                    this.onBoardingVisibilityClass = '';
-                    this.$refs.overlay.addEventListener('transitionend', this.finalTransitionEnd, false);
-                });
-            });
-        },
-        finalTransitionEnd () {
-            this.$refs.overlay.removeEventListener('transitionend', this.finalTransitionEnd, false);
-            this.endActions();
-        },
-        endActions () {
-            this.$set(document.documentElement.style, 'overflow', 'auto');
-            this.$set(document.body, 'scroll', 'yes');
-            this.setFirstTimeAppOpenInDevice();
+            }
+            overlay.value.removeEventListener('transitionend', firstTransitionEnd, false)
         }
-    },
-    watch: {
-        cardNumber (value) {
-            this.$set(this.styleContainerObject, 'transform', `translate(${(value - 1) * -100}vw)`);
+
+        const complete = () => {
+            cardsLength.value = 0
+            styleContainerObject.value = {
+                transition: 'none'
+            }
+            styleCardObject.value = {}
+            setTimeout(() => {
+                styleContainerObject.value = {}
+                setTimeout(() => {
+                    onBoardingVisibilityClass.value = ''
+                    overlay.value.addEventListener('transitionend', finalTransitionEnd, false)
+                })
+            })
+        }
+
+        const finalTransitionEnd = () => {
+            overlay.value.removeEventListener('transitionend', finalTransitionEnd, false)
+            endActions()
+        }
+
+        const endActions = () => {
+            document.documentElement.style.overflow = 'auto'
+            document.body.scroll = 'yes'
+            store.dispatch('device/setFirstTimeAppOpenInDevice')
+        }
+
+        onMounted(() => {
+            setTimeout(() => {
+                onBoardingVisibilityClass.value = 'show'
+                overlay.value.addEventListener('transitionend', firstTransitionEnd, false)
+            }, 600)
+            document.documentElement.style.overflow = 'hidden'
+            document.body.scroll = 'no'
+        })
+
+        watch(() => cardNumber.value, (value) => {
+            styleContainerObject.value.transform = `translate(${(value - 1) * -100}vw)`
+        })
+
+        return {
+            overlay,
+            cardNumber,
+            cardsLength,
+            onBoardingVisibilityClass,
+            styleContainerObject,
+            styleCardObject,
+            srcCard,
+            complete
         }
     }
-};
+}
 </script>
 
 <style scoped>
@@ -125,14 +134,5 @@ export default {
 .btn-success {
     position: relative;
     min-width: 5rem;
-    min-height: 42px;
-    border: 2px solid #FFFFFF;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    border-radius: 0;
-    padding: 1em;
-}
-.btn-success:hover {
-    border-color: #fff;
 }
 </style>

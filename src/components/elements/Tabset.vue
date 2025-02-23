@@ -24,8 +24,11 @@
 <style lang="sass" src="./tabs.scss"></style>
 -->
 
-<script type="text/babel">
+<script>
+import { ref, computed } from 'vue'
+
 export default {
+    name: 'tabset',
     props: {
         orientation: {
             type: String,
@@ -40,72 +43,83 @@ export default {
             default: false
         }
     },
-    data: function () {
-        return {
-            tabs: [],
-            activeTabIndex: 0
-        };
-    },
-    computed: {
-        activeTabClass: function () {
-            return ('active-' + this.activeTabIndex);
+    setup(props) {
+        const tabs = ref([])
+        const activeTabIndex = ref(0)
+
+        const activeTabClass = computed(() => 'active-' + activeTabIndex.value)
+
+        const orientationClass = () => {
+            return 'tabs-' + props.orientation
         }
-    },
-    methods: {
-        orientationClass: function () {
-            return 'tabs-' + this.orientation;
-        },
-        activateTab: function (index, ensure) {
-            this.activeTabIndex = index;
-            if (this.rememberTab) {
+
+        const activateTab = (index, ensure) => {
+            activeTabIndex.value = index
+            if (props.rememberTab) {
                 if (window.sessionStorage && !ensure) {
-                    window.sessionStorage.setItem(this.keytabset + '_last_active_tab', this.activeTabIndex);
+                    window.sessionStorage.setItem(props.keytabset + '_last_active_tab', activeTabIndex.value)
                 }
             }
-            var tab = this.tabs[index];
+            const tab = tabs.value[index]
             if (tab && !tab.disabled) {
                 if (index === 'first') {
-                    index = 0;
+                    index = 0
                 } else if (index === 'last') {
-                    index = this.tabs.length - 1;
-                } // end if
-                this.tabs.forEach(function (tab, idx) {
-                    tab.active = idx === index;
-                });
-            } // end if
-        },
-        getRememberedTab: function (defaultValue) {
-            if (this.rememberTab) {
+                    index = tabs.value.length - 1
+                }
+                tabs.value.forEach((tab, idx) => {
+                    tab.active = idx === index
+                })
+            }
+        }
+
+        const getRememberedTab = (defaultValue) => {
+            if (props.rememberTab) {
                 if (window.sessionStorage) {
-                    let savedIndex = window.sessionStorage.getItem(this.keytabset + '_last_active_tab');
+                    let savedIndex = window.sessionStorage.getItem(props.keytabset + '_last_active_tab')
                     if (savedIndex) {
-                        return parseInt(savedIndex, 10);
+                        return parseInt(savedIndex, 10)
                     }
                 }
             }
-            return defaultValue;
-        },
-        ensureActiveTab: function () {
-            var activeTab = 0;
-            this.tabs.forEach((tab, index) => {
+            return defaultValue
+        }
+
+        const ensureActiveTab = () => {
+            let activeTab = 0
+            tabs.value.forEach((tab, index) => {
                 if (tab.active) {
-                    activeTab = index;
-                } // end if
-            });
-            this.activateTab(activeTab, true);
-        },
-        registerTab: function (tab) {
-            tab.id = this.tabs.length;
-            this.tabs.push(tab);
-            this.ensureActiveTab();
-        },
-        removeTab (tab) {
-            let index = this.tabs.findIndex(item => item.id === tab.id);
+                    activeTab = index
+                }
+            })
+            activateTab(activeTab, true)
+        }
+
+        const registerTab = (tab) => {
+            tab.id = tabs.value.length
+            tabs.value.push(tab)
+            ensureActiveTab()
+        }
+
+        const removeTab = (tab) => {
+            let index = tabs.value.findIndex(item => item.id === tab.id)
             if (index >= 0) {
-                this.tabs.splice(index, 1);
+                tabs.value.splice(index, 1)
             }
-            this.ensureActiveTab();
+            ensureActiveTab()
+        }
+
+        return {
+            tabs,
+            activeTabIndex,
+            activeTabClass,
+            orientationClass,
+            activateTab,
+            getRememberedTab,
+            ensureActiveTab,
+            registerTab,
+            removeTab
         }
     }
-};
+}
 </script>

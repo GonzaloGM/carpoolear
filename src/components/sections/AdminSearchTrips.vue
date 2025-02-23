@@ -106,192 +106,161 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import DatePicker from '../DatePicker';
-import moment from 'moment';
-import dialogs from '../../services/dialogs.js';
-import loading from '../Loading';
-import Autocomplete from '../Autocomplete';
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import DatePicker from '../DatePicker'
+import moment from 'moment'
+import dialogs from '../../services/dialogs.js'
+import loading from '../Loading'
+import Autocomplete from '../Autocomplete'
 
 export default {
     name: 'search-trip',
-    data () {
-        return {
-            minDate: moment().toDate(),
-            isPassenger: false,
-            isAdmin: true,
-            from_town: {
-                name: '',
-                location: null,
-                radio: 0,
-                country: 'ARG'
-            },
-            to_town: {
-                name: '',
-                location: null,
-                radio: 0,
-                country: 'ARG'
-            },
-            from_date: '',
-            to_date: '',
-            dateAnswer: '',
-            dateError: {
-                message: '',
-                state: ''
-            },
-            user: '',
-            showAutocomplete: false,
-            userSearch: '',
-            userList: [],
-            chofer_logo_blanco: process.env.ROUTE_BASE + 'static/img/icono-conductor-blanco.png',
-            pasajero_logo_blanco: process.env.ROUTE_BASE + 'static/img/icono-pasajero-blanco.png',
-            chofer_logo_gris: process.env.ROUTE_BASE + 'static/img/icono-conductor-gris.png',
-            pasajero_logo_gris: process.env.ROUTE_BASE + 'static/img/icono-pasajero-gris.png',
-            swap_horizontal: process.env.ROUTE_BASE + 'static/img/flechas_horizontales.png',
-            swap_vertical: process.env.ROUTE_BASE + 'static/img/flechas_verticales.png',
-            allowForeignPoints: false,
-            options: []
-        };
-    },
-    computed: {
-        ...mapGetters({
-            isMobile: 'device/isMobile',
-            config: 'auth/appConfig'
-        })
-    },
-    methods: {
-        ...mapActions({
-            search: 'trips/tripsSearch',
-            searchUsers: 'admin/searchUsers'
-        }),
-        onSearchUsers () {
-            this.showAutocomplete = true;
-            this.searchUsers(this.userSearch)
-                .then((data) => {
-                    this.userList = data.data.slice(0, 3);
-                })
-                .catch((err) => {
-                    console.log(err);
-                    this.userList = [];
-                });
-        },
-        selectUser (user) {
-            this.showAutocomplete = false;
-            this.userList = null;
-            this.userSearch = user.name;
-            this.user = user;
-        },
-        getPlace (i, data) {
-            console.log('getPlace', data);
-            let obj = {};
-            // FIXME falta bounding box
-            if (data) {
-                obj = {
-                    name: data.name,
-                    location: {
-                        lat: parseFloat(data.lat),
-                        lng: parseFloat(data.lng)
-                    },
-                    country: data.country
-                };
-            }
-            if (i === 0) {
-                this.from_town = obj;
-            } else {
-                this.to_town = obj;
-            }
-        },
-        emit () {
-            let params = {};
-            let foreignCountry = 0;
-            if (this.from_town.location) {
-                console.log('emit', this.from_town.location);
-                params.origin_lat = this.from_town.location.lat;
-                params.origin_lng = this.from_town.location.lng;
-                params.origin_radio = this.from_town.radio;
-                params.origin_name = this.from_town.name;
-                params.origin_id = this.from_town.id;
-            } else {
-                params.origin_name = this.$refs['from_town'].input;
-            }
-            if (this.from_town && this.from_town.country && this.from_town.country.toLowerCase() !== this.config.osm_country.toLowerCase()) {
-                foreignCountry++;
-            }
-            if (this.to_town.location) {
-                params.destination_lat = this.to_town.location.lat;
-                params.destination_lng = this.to_town.location.lng;
-                params.destination_radio = this.to_town.radio;
-                params.destination_name = this.to_town.name;
-                params.destination_id = this.to_town.id;
-            } else {
-                params.destination_name = this.$refs['to_town'].input;
-            }
-            if (this.to_town && this.to_town.country && this.to_town.country.toLowerCase() !== this.config.osm_country.toLowerCase()) {
-                foreignCountry++;
-            }
-            if (this.from_date) {
-                params.from_date = this.from_date;
-            }
-            if (this.to_date) {
-                params.to_date = this.to_date;
-            }
-
-            if (!this.from_date && !this.to_date) {
-                params.history = true;
-            }
-            if (this.user.id) {
-                params.user_id = this.user.id;
-            }
-            params.is_passenger = this.isPassenger;
-            params.is_admin = this.isAdmin;
-            if (foreignCountry < 2) {
-                this.$emit('admin-trip-search', params);
-            } else {
-                dialogs.message('Origen y destino no pueden ser ambos del exterior.', { duration: 10, estado: 'error' });
-            }
-        },
-        resetInput (input) {
-            if (this.$refs[input]) {
-                this.$refs[input].input = '';
-            }
-            this[input] = {
-                name: '',
-                location: null,
-                radio: 0,
-                country: this.config.osm_country
-            };
-        },
-        resetUser () {
-            this.user = {};
-            this.userSearch = '';
-        },
-        swapCities () {
-            let temp;
-            temp = this['to_town'];
-            this['to_town'] = Object.assign({}, this['from_town']);
-            this['from_town'] = Object.assign({}, temp);
-        },
-        clear () {
-            this.resetInput('from_town');
-            this.$refs['from_town'].input = '';
-            this.resetInput('to_town');
-            this.$refs['to_town'].input = '';
-            this.$refs.datepicker.clear();
-        },
-        onSearch (search, loading) {
-            loading(true);
-            this.search(loading, search, this);
-        }
-    },
-    props: [
-        'params'
-    ],
     components: {
         DatePicker,
-        Autocomplete,
-        loading
+        loading,
+        Autocomplete
+    },
+    setup() {
+        const store = useStore()
+        
+        const minDate = ref(moment().toDate())
+        const isPassenger = ref(false)
+        const isAdmin = ref(true)
+        const from_town = ref({
+            name: '',
+            location: null,
+            radio: 0,
+            country: 'ARG'
+        })
+        const to_town = ref({
+            name: '',
+            location: null,
+            radio: 0,
+            country: 'ARG'
+        })
+        const from_date = ref('')
+        const to_date = ref('')
+        const dateAnswer = ref('')
+        const dateError = ref({
+            message: '',
+            state: ''
+        })
+        const userSearch = ref('')
+        const userList = ref([])
+        const showAutocomplete = ref(true)
+        const selectedUser = ref(null)
+        const allowForeignPoints = ref(false)
+
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const chofer_logo_blanco = ref(process.env.ROUTE_BASE + 'static/img/icono-conductor-blanco.png')
+        const pasajero_logo_blanco = ref(process.env.ROUTE_BASE + 'static/img/icono-pasajero-blanco.png')
+        const chofer_logo_gris = ref(process.env.ROUTE_BASE + 'static/img/icono-conductor-gris.png')
+        const pasajero_logo_gris = ref(process.env.ROUTE_BASE + 'static/img/icono-pasajero-gris.png')
+        const swap_horizontal = ref(process.env.ROUTE_BASE + 'static/img/flechas_horizontales.png')
+        const swap_vertical = ref(process.env.ROUTE_BASE + 'static/img/flechas_verticales.png')
+
+        const getPlace = (index, place) => {
+            if (index === 0) {
+                from_town.value.name = place.name
+                from_town.value.location = place.location
+                from_town.value.radio = place.radio
+                from_town.value.country = place.country
+            } else {
+                to_town.value.name = place.name
+                to_town.value.location = place.location
+                to_town.value.radio = place.radio
+                to_town.value.country = place.country
+            }
+        }
+
+        const resetInput = (ref) => {
+            if (ref === 'from_town') {
+                from_town.value.name = ''
+                from_town.value.location = null
+            } else {
+                to_town.value.name = ''
+                to_town.value.location = null
+            }
+        }
+
+        const swapCities = () => {
+            const temp = { ...from_town.value }
+            from_town.value = { ...to_town.value }
+            to_town.value = temp
+        }
+
+        const onSearchUsers = async () => {
+            if (userSearch.value.length > 2) {
+                showAutocomplete.value = true
+                userList.value = await store.dispatch('users/searchUsers', userSearch.value)
+            } else {
+                userList.value = []
+            }
+        }
+
+        const selectUser = (user) => {
+            selectedUser.value = user
+            userSearch.value = user.name
+            showAutocomplete.value = false
+        }
+
+        const resetUser = () => {
+            selectedUser.value = null
+            userSearch.value = ''
+        }
+
+        const emit = () => {
+            store.dispatch('admin/searchTrips', {
+                from_town: from_town.value,
+                to_town: to_town.value,
+                from_date: from_date.value,
+                to_date: to_date.value,
+                is_passenger: isPassenger.value,
+                user: selectedUser.value
+            })
+        }
+
+        onMounted(() => {
+            from_town.value.country = config.value.osm_country
+            to_town.value.country = config.value.osm_country
+        })
+
+        return {
+            minDate,
+            isPassenger,
+            isAdmin,
+            from_town,
+            to_town,
+            from_date,
+            to_date,
+            dateAnswer,
+            dateError,
+            userSearch,
+            userList,
+            showAutocomplete,
+            selectedUser,
+            allowForeignPoints,
+            isMobile,
+            config,
+            chofer_logo_blanco,
+            pasajero_logo_blanco,
+            chofer_logo_gris,
+            pasajero_logo_gris,
+            swap_horizontal,
+            swap_vertical,
+            getPlace,
+            resetInput,
+            swapCities,
+            onSearchUsers,
+            selectUser,
+            resetUser,
+            emit
+        }
     }
-};
+}
 </script>
 
 <style scoped>

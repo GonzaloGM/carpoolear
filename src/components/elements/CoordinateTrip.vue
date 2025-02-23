@@ -68,96 +68,99 @@
             </button>
         </template>
     </div>
-</template>>
+</template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import dialogs from '../../services/dialogs.js';
-import spinner from '../Spinner.vue';
-import moment from 'moment';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import dialogs from '../../services/dialogs.js'
+import spinner from '../Spinner.vue'
+import moment from 'moment'
 
 export default {
     name: 'conversation-chat',
-    data () {
-        return {
-            sending: {
-                trip: false,
-                returnTrip: false
-            }
-        };
+    components: {
+        spinner
     },
-    computed: {
-        ...mapGetters({
-            'conversation': 'conversations/selectedConversation',
-            'config': 'auth/appConfig',
-            'user': 'auth/user'
-        }),
-        owner () {
-            return this.conversation.trip && this.user && this.user.id === this.conversation.trip.user.id;
-        },
-        isPassengerTrip () {
-            return this.conversation.trip && this.conversation.trip.passenger.findIndex(item => item.user_id === this.user.id && (item.request_state === 1 || item.request_state === 4)) >= 0;
-        },
-        isPassengerReturnTrip () {
-            return this.conversation.return_trip && this.conversation.return_trip.passenger.findIndex(item => item.user_id === this.user.id && (item.request_state === 1 || item.request_state === 4)) >= 0;
-        },
-        expiredTrip () {
-            return moment(this.conversation.trip.trip_date).format() < moment().format();
-        },
-        expiredReturnTrip () {
-            return moment(this.conversation.return_trip.trip_date).format() < moment().format();
-        }
-    },
-    methods: {
-        ...mapActions({
-            'make': 'passenger/makeRequest',
-            'cancel': 'passenger/cancel'
-        }),
+    setup() {
+        const store = useStore()
+        
+        const sending = ref({
+            trip: false,
+            returnTrip: false
+        })
 
-        doRequest (isReturnTrip = false) {
-            if (this.config.module_coordinate_by_message) {
-                this.$set(this.sending, isReturnTrip ? 'returnTrip' : 'trip', true);
-                let trip = isReturnTrip ? this.conversation.return_trip : this.conversation.trip;
-                this.make(trip.id).then((response) => {
-                    this.$set(trip, 'request', 'send');
-                }).finally(() => {
-                    this.$set(this.sending, isReturnTrip ? 'returnTrip' : 'trip', false);
-                });
-            }
-        },
+        const conversation = computed(() => store.getters['conversations/selectedConversation'])
+        const config = computed(() => store.getters['auth/appConfig'])
+        const user = computed(() => store.getters['auth/user'])
+        
+        const owner = computed(() => {
+            return conversation.value.trip && user.value && user.value.id === conversation.value.trip.user.id
+        })
 
-        cancelRequest (isReturnTrip = false) {
-            if (this.config.module_coordinate_by_message) {
-                if (window.confirm('¿Estás seguro que deseas bajarte del viaje?')) {
-                    this.$set(this.sending, isReturnTrip ? 'trip' : 'returnTrip', true);
-                    let trip = isReturnTrip ? this.conversation.return_trip : this.conversation.trip;
-                    this.cancel({ user: this.user, trip: trip }).then(() => {
-                        dialogs.message('Te has bajado del viaje.');
-                        if (trip.request === 'send') {
-                            trip.request = '';
-                        }
-                        if (this.isPassengerTrip || this.isPassengerReturnTrip) {
-                            let index = trip.passenger.findIndex(item => item.id === this.user.id && (item.request_state === 1 || item.request_state === 4));
-                            if (index >= 0) {
-                                trip.passenger[index].request_state = 3;
-                                trip.seats_available++;
-                                trip.passenger_count--;
-                            }
-                        }
-                    }).catch((error) => {
-                        console.error(error);
-                        dialogs.message('Ocurrió un problema al solicitar, por favor aguarde unos instante e intentelo nuevamente.', { estado: 'error' });
-                    }).finally(() => {
-                        this.$set(this.sending, isReturnTrip ? 'trip' : 'returnTrip', false);
-                    });
+        const isPassengerTrip = computed(() => {
+            return conversation.value.trip && conversation.value.trip.passenger.findIndex(item => 
+                item.user_id === user.value.id && (item.request_state === 1 || item.request_state === 4)) >= 0
+        })
+
+        const isPassengerReturnTrip = computed(() => {
+            return conversation.value.return_trip && conversation.value.return_trip.passenger.findIndex(item => 
+                item.user_id === user.value.id && (item.request_state === 1 || item.request_state === 4)) >= 0
+        })
+
+        const expiredTrip = computed(() => {
+            return moment(conversation.value.trip.trip_date).format() < moment().format()
+        })
+
+        const expiredReturnTrip = computed(() => {
+            return moment(conversation.value.return_trip.trip_date).format() < moment().format()
+        })
+
+        const doRequest = async (isReturnTrip = false) => {
+            if (config.value.module_coordinate_by_message) {
+                sending.value[isReturnTrip ? 'returnTrip' : 'trip'] = true
+                let trip = isReturnTrip ? conversation.value.return_trip : conversation.value.trip
+                try {
+                    await store.dispatch('passenger/makeRequest', trip.id)
+                    trip.request = 'send'
+                } catch (error) {
+                    console.error('Error making request:', error)
+                    dialogs.error('No se pudo enviar la solicitud')
+                } finally {
+                    sending.value[isReturnTrip ? 'returnTrip' : 'trip'] = false
                 }
             }
         }
-    },
-    components: {
-        spinner
+
+        const cancelRequest = async (isReturnTrip = false) => {
+            sending.value[isReturnTrip ? 'returnTrip' : 'trip'] = true
+            let trip = isReturnTrip ? conversation.value.return_trip : conversation.value.trip
+            try {
+                await store.dispatch('passenger/cancel', { trip })
+                trip.request = null
+            } catch (error) {
+                console.error('Error canceling request:', error)
+                dialogs.error('No se pudo cancelar la solicitud')
+            } finally {
+                sending.value[isReturnTrip ? 'returnTrip' : 'trip'] = false
+            }
+        }
+
+        return {
+            sending,
+            conversation,
+            config,
+            user,
+            owner,
+            isPassengerTrip,
+            isPassengerReturnTrip,
+            expiredTrip,
+            expiredReturnTrip,
+            doRequest,
+            cancelRequest
+        }
     }
-};
+}
 </script>
 
 <style scoped>

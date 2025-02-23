@@ -40,60 +40,55 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import router from '../../router';
-import dialogs from '../../services/dialogs.js';
-import bus from '../../services/bus-event';
+import { computed, ref } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import dialogs from '../../services/dialogs.js'
+import bus from '../../services/bus-event'
+
 export default {
     name: 'TripPassengers',
-    data () {
-        return {
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        const sending = ref(false)
 
-        };
-    },
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme',
-            user: 'auth/user'
-        }),
-        owner () {
-            return this.trip && this.user && this.user.id === this.trip.user.id;
-        },
-        acceptedPassengers () {
-            console.log('acceptedPassengers', this.trip);
-            return this.trip.allPassengerRequest ? this.trip.allPassengerRequest.filter(item => item.request_state === 1) : [];
-        },
-        waitingForPaymentsPassengers () {
-            return this.trip.allPassengerRequest ? this.trip.allPassengerRequest.filter(item => item.request_state === 4) : [];
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const user = computed(() => store.getters['auth/user'])
+
+        const owner = computed(() => {
+            return trip.value && user.value && user.value.id === trip.value.user.id
+        })
+
+        const acceptedPassengers = computed(() => {
+            console.log('acceptedPassengers', trip.value)
+            return trip.value.allPassengerRequest ? trip.value.allPassengerRequest.filter(item => item.request_state === 1) : []
+        })
+
+        const waitingForPaymentsPassengers = computed(() => {
+            return trip.value.allPassengerRequest ? trip.value.allPassengerRequest.filter(item => item.request_state === 4) : []
+        })
+
+        const calculateHeight = () => {
+            nextTick(() => {
+                bus.emit('calculate-height')
+            })
         }
-    },
-    props: [],
-    components: {
-    },
-    mounted () {
-        this.calculateHeight();
-    },
-    methods: {
-        ...mapActions({
-            lookConversation: 'conversations/createConversation',
-            cancel: 'passenger/cancel'
-        }),
-        calculateHeight () {
-            this.$nextTick(() => {
-                bus.emit('calculate-height');
-            });
-        },
-        toUserMessages (user) {
-            this.lookConversation(user).then(conversation => {
-                router.push({ name: 'conversation-chat', params: { id: conversation.id } });
-            }).catch(error => {
-                console.error(error);
-                this.sending = false;
-            });
-        },
-        toUserProfile (user) {
+
+        const toUserMessages = async (user) => {
+            try {
+                const conversation = await store.dispatch('conversations/createConversation', user)
+                router.push({ name: 'conversation-chat', params: { id: conversation.id } })
+            } catch (error) {
+                console.error(error)
+                sending.value = false
+            }
+        }
+
+        const toUserProfile = (user) => {
             router.replace({
                 name: 'profile',
                 params: {
@@ -101,30 +96,46 @@ export default {
                     userProfile: user,
                     activeTab: 1
                 }
-            });
-        },
-        removePassenger (user) {
+            })
+        }
+
+        const removePassenger = async (user) => {
             if (window.confirm('¿Estás seguro que deseas bajar a este pasajero de tu viaje?')) {
-                this.sending = true;
-                this.cancel({ user: user, trip: this.trip }).then(() => {
-                    this.sending = false;
-                    dialogs.message(this.$t('removerPasajeroExitoso'), { estado: 'success' });
-                }).catch(() => {
-                    this.sending = false;
-                });
+                sending.value = true
+                try {
+                    await store.dispatch('passenger/cancel', { user, trip: trip.value })
+                    sending.value = false
+                    dialogs.message('removerPasajeroExitoso', { estado: 'success' })
+                } catch {
+                    sending.value = false
+                }
             }
         }
-    },
-    watch: {
-        acceptedPassengers () {
-            this.calculateHeight();
-        },
-        waitingForPaymentsPassengers () {
-            this.calculateHeight();
+
+        watch([acceptedPassengers, waitingForPaymentsPassengers], () => {
+            calculateHeight()
+        })
+
+        onMounted(() => {
+            calculateHeight()
+        })
+
+        return {
+            trip,
+            tripCardTheme,
+            user,
+            owner,
+            acceptedPassengers,
+            waitingForPaymentsPassengers,
+            sending,
+            toUserMessages,
+            toUserProfile,
+            removePassenger
         }
     }
-};
+}
 </script>
+
 <style scoped>
     .trip_driver_img.circle-box.passenger {
         width: 3.5em;

@@ -73,14 +73,16 @@
 </template>
 
 <script>
-import Modal from '../Modal';
-import router from '../../router';
+import { defineComponent } from 'vue'
+import { useRouter } from 'vue-router'
+import Modal from '../Modal'
 
 // FIXME: Rate_at undefined
 
-export default {
+export default defineComponent({
     name: 'trip-display',
-    mounted () {
+    components: {
+        Modal
     },
     props: {
         trip: {
@@ -90,27 +92,32 @@ export default {
             required: false
         }
     },
-    methods: {
-        openProfile (id) {
-            router.push({ name: 'profile', params: { id: id } });
-        },
-        visibilityParser (id) {
+    setup() {
+        const router = useRouter()
+
+        const openProfile = (id) => {
+            router.push({ name: 'profile', params: { id: id } })
+        }
+
+        const visibilityParser = (id) => {
             switch (id) {
-            case 0:
-                return 'Amigos';
-            case 1:
-                return 'Amigos de amigos';
-            case 2:
-                return 'Publico';
-            default:
-                return 'Indefinido';
+                case 0:
+                    return 'Amigos'
+                case 1:
+                    return 'Amigos de amigos'
+                case 2:
+                    return 'Publico'
+                default:
+                    return 'Indefinido'
             }
         }
-    },
-    components: {
-        Modal
+
+        return {
+            openProfile,
+            visibilityParser
+        }
     }
-};
+})
 </script>
 
 <style>
@@ -118,4 +125,5 @@ export default {
     font-size: 2em;
 }
 
+</style>
 </style>

@@ -74,33 +74,38 @@
     </div>
   </footer>
 </template>
+
 <script>
-import { mapActions, mapGetters } from 'vuex';
-import svgItem from '../SvgItem';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import svgItem from '../SvgItem'
 
 export default {
     name: 'footerApp',
-    data () {
-        return {
-        };
-    },
-    computed: {
-        ...mapGetters({
-            footerButtons: 'actionbars/footerButtons',
-            footerShow: 'actionbars/footerShow',
-            notificationsCount: 'notifications/count',
-            config: 'auth/appConfig'
-        })
-    },
-    methods: {
-        ...mapActions({
-            onClick: 'actionbars/footerButtonClick'
-        })
-    },
     components: {
         svgItem
+    },
+    setup() {
+        const store = useStore()
+
+        const footerButtons = computed(() => store.getters['actionbars/footerButtons'])
+        const footerShow = computed(() => store.getters['actionbars/footerShow'])
+        const notificationsCount = computed(() => store.getters['notifications/count'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const onClick = (item) => {
+            store.dispatch('actionbars/footerButtonClick', item)
+        }
+
+        return {
+            footerButtons,
+            footerShow,
+            notificationsCount,
+            config,
+            onClick
+        }
     }
-};
+}
 </script>
 
 <style scoped>

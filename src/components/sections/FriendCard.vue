@@ -15,24 +15,24 @@
         </div>
       </template>
     </div>
-
   </div>
 </template>
+
 <script>
-export default {
+import { defineComponent } from 'vue'
+
+export default defineComponent({
     name: 'friend_card',
-    props: [
-        'user'
-    ],
-    data () {
-        return {
-
-        };
+    props: {
+        user: {
+            type: Object,
+            required: true
+        }
     },
-    mounted () {
-
+    setup() {
+        return {}
     }
-};
+})
 </script>
 
 <style scoped>
@@ -70,9 +70,9 @@ export default {
         padding: .8em .8em;
     }
   }
-    @media only screen and (max-width: 400px) {
-      .pending-buttons .btn-accept-request {
-          padding: .92em;
-      }
+  @media only screen and (max-width: 400px) {
+    .pending-buttons .btn-accept-request {
+        padding: .92em;
     }
+  }
 </style>

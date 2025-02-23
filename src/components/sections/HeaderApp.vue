@@ -122,103 +122,108 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
-import { dropdown } from 'vue-strap';
-import router from '../../router';
-import bus from '../../services/bus-event.js';
-import modal from '../Modal';
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import { bus } from '../../services/bus'
+import dropdown from '../Dropdown.vue'
+import modal from '../Modal.vue'
+import dialogs from '../../services/dialogs'
 
 export default {
     name: 'headerApp',
-
-    data () {
-        return {
-            background_desktop_mini: process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_background_desktop_mini.png',
-            background_desktop: process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_background_desktop.png',
-            app_logo: process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_logo.png',
-            showModal: false
-        };
-    },
-
-    mounted () {
-        bus.on('header-title-change', this.onHeaderChange);
-        console.log('app_logo', this.app_logo);
-        console.log('ROUTE_BASE', process.env.ROUTE_BASE);
-    },
-
-    computed: {
-        ...mapGetters({
-            logged: 'auth/checkLogin',
-            user: 'auth/user',
-            notificationsCount: 'notifications/count',
-            title: 'actionbars/title',
-            titleLink: 'actionbars/titleLink',
-            subTitle: 'actionbars/subTitle',
-            imgTitle: 'actionbars/imgTitle',
-            showMenu: 'actionbars/showMenu',
-            leftHeaderButton: 'actionbars/leftHeaderButton',
-            rightHeaderButton: 'actionbars/rightHeaderButton',
-            logoHeaderVisibility: 'actionbars/headerLogoVisibility',
-            isNotLargeDesktop: 'device/isNotLargeDesktop',
-            isFacebokApp: 'device/isFacebokApp',
-            isMobile: 'device/isMobile',
-            config: 'auth/appConfig'
-        }),
-
-        showLogo () {
-            for (let i = 0; i < this.leftHeaderButton.length; i++) {
-                if (this.leftHeaderButton[i].show) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    },
-
-    methods: {
-        share () {
-            // dialogs.message('Message example');
-            /* if (window && window.plugins && window.plugins.socialsharing && window.plugins.socialsharing.shareWithOptions) {
-                socialShare.share();
-            } else {
-                this.showModal = true;
-            } */
-            // Primero necesito ver cuando estoy en App y cuando en Web
-            this.showModal = true;
-        },
-
-        logout () {
-            this.$store.dispatch('auth/logout');
-        },
-
-        toNotifications () {
-            router.push({ name: 'notifications' });
-        },
-
-        onClick (item) {
-            bus.emit(item.id + '-click');
-        },
-
-        tripsClick () {
-            this.$store.dispatch('trips/refreshList', true);
-            this.$store.dispatch('trips/tripsSearch', { is_passenger: false });
-        },
-
-        onHeaderChange () {
-            // console.log('header-change', this.title);
-        }
-
-    },
-    watch: {
-        title (_old, _new) {
-            console.log('titlee change', this.title);
-        }
-    },
     components: {
         dropdown,
         modal
+    },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        const showModal = ref(false)
+        
+        const background_desktop_mini = ref(process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_background_desktop_mini.png')
+        const background_desktop = ref(process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_background_desktop.png')
+        const app_logo = ref(process.env.ROUTE_BASE + 'static/img/' + process.env.TARGET_APP + '_logo.png')
+
+        const logged = computed(() => store.getters['auth/checkLogin'])
+        const user = computed(() => store.getters['auth/user'])
+        const notificationsCount = computed(() => store.getters['notifications/count'])
+        const title = computed(() => store.getters['actionbars/title'])
+        const titleLink = computed(() => store.getters['actionbars/titleLink'])
+        const subTitle = computed(() => store.getters['actionbars/subTitle'])
+        const imgTitle = computed(() => store.getters['actionbars/imgTitle'])
+        const showMenu = computed(() => store.getters['actionbars/showMenu'])
+        const leftHeaderButton = computed(() => store.getters['actionbars/leftHeaderButton'])
+        const rightHeaderButton = computed(() => store.getters['actionbars/rightHeaderButton'])
+        const logoHeaderVisibility = computed(() => store.getters['actionbars/headerLogoVisibility'])
+        const isNotLargeDesktop = computed(() => store.getters['device/isNotLargeDesktop'])
+        const isFacebokApp = computed(() => store.getters['device/isFacebokApp'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const showLogo = computed(() => {
+            return !leftHeaderButton.value.some(btn => btn.show)
+        })
+
+        onMounted(() => {
+            bus.on('header-title-change', onHeaderChange)
+        })
+
+        const share = () => {
+            showModal.value = true
+        }
+
+        const logout = () => {
+            store.dispatch('auth/logout')
+        }
+
+        const toNotifications = () => {
+            router.push({ name: 'notifications' })
+        }
+
+        const onClick = (item) => {
+            bus.emit(item.id + '-click')
+        }
+
+        const tripsClick = () => {
+            store.dispatch('trips/refreshList', true)
+            store.dispatch('trips/tripsSearch', { is_passenger: false })
+        }
+
+        const onHeaderChange = () => {
+            // Header change handler
+        }
+
+        return {
+            showModal,
+            background_desktop_mini,
+            background_desktop,
+            app_logo,
+            logged,
+            user,
+            notificationsCount,
+            title,
+            titleLink,
+            subTitle,
+            imgTitle,
+            showMenu,
+            leftHeaderButton,
+            rightHeaderButton,
+            logoHeaderVisibility,
+            isNotLargeDesktop,
+            isFacebokApp,
+            isMobile,
+            config,
+            showLogo,
+            share,
+            logout,
+            toNotifications,
+            onClick,
+            tripsClick,
+            onHeaderChange
+        }
     }
-};
+}
 </script>
 
 <style scoped>

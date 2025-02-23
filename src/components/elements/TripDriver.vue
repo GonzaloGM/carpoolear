@@ -74,75 +74,84 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
-import TripDate from './TripDate';
-import TripDescription from './TripDescription';
-import SvgItem from '../SvgItem';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import TripDate from './TripDate'
+import TripDescription from './TripDescription'
+import SvgItem from '../SvgItem'
 
 export default {
     name: 'TripDriver',
-    computed: {
-        ...mapGetters({
-            user: 'auth/user',
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme',
-            config: 'auth/appConfig',
-            isMobile: 'device/isMobile'
-        }),
-        getUserProfile () {
-            return this.trip.user.id === this.user.id ? 'me' : this.trip.user.id;
-        },
-        getUserImage () {
-            return this.user.id === this.trip.user.id ? this.user.image : this.trip.user.image;
-        },
-        tripStars () {
-            if (this.trip && this.trip.user) {
-                let value = this.trip.user.positive_ratings / (this.trip.user.positive_ratings + this.trip.user.negative_ratings) * 5;
-                let integerPart = Math.floor(value);
-                let decimalPart = value - integerPart;
-                let stars = [];
+    components: {
+        TripDate,
+        TripDescription,
+        SvgItem
+    },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const user = computed(() => store.getters['auth/user'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const config = computed(() => store.getters['auth/appConfig'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+
+        const getUserProfile = computed(() => {
+            return trip.value.user.id === user.value.id ? 'me' : trip.value.user.id
+        })
+
+        const getUserImage = computed(() => {
+            return user.value.id === trip.value.user.id ? user.value.image : trip.value.user.image
+        })
+
+        const tripStars = computed(() => {
+            if (trip.value && trip.value.user) {
+                let value = trip.value.user.positive_ratings / (trip.value.user.positive_ratings + trip.value.user.negative_ratings) * 5
+                let integerPart = Math.floor(value)
+                let decimalPart = value - integerPart
+                let stars = []
                 for (let i = 1; i <= 5; i++) {
                     if (i < integerPart) {
                         stars.push({
                             id: i,
                             value: ''
-                        });
+                        })
                     } else {
                         if (i === integerPart) {
                             if (decimalPart >= 0.5) {
                                 stars.push({
                                     id: i,
                                     value: ''
-                                });
+                                })
                             } else {
                                 stars.push({
                                     id: i,
                                     value: '-half'
-                                });
+                                })
                             }
                         } else {
                             stars.push({
                                 id: i,
                                 value: '-empty'
-                            });
+                            })
                         }
                     }
                 }
-                return stars;
+                return stars
             } else {
-                return [];
+                return []
             }
-        },
-        averageDelay () {
+        })
+
+        const averageDelay = computed(() => {
             var delay = '';
-            if (this.trip && this.trip.user) {
-                if (this.trip.user.conversation_answered_count) {
-                    var time = this.trip.user.answer_delay_sum / this.trip.user.conversation_answered_count;
-                    // var hours = Math.floor(time / 60 / 60);
-                    // var minutes = Math.floor(time / 60) % 60;
-                    // var seconds = Math.floor(time - minutes * 60 - hours * 3600);
-                    // delay = hours + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+            if (trip.value && trip.value.user) {
+                if (trip.value.user.conversation_answered_count) {
+                    var time = trip.value.user.answer_delay_sum / trip.value.user.conversation_answered_count;
                     if (time / 3600 > 24) {
                         delay = 'Más de un día';
                     } else if (time / 3600 > 12) {
@@ -157,35 +166,45 @@ export default {
                 }
             }
             return delay;
-        },
-        percentageResponse () {
+        })
+
+        const percentageResponse = computed(() => {
             var response = '';
-            if (this.trip && this.trip.user) {
-                if (this.trip.user.conversation_opened_count) {
-                    var percentage = this.trip.user.conversation_answered_count / this.trip.user.conversation_opened_count;
+            if (trip.value && trip.value.user) {
+                if (trip.value.user.conversation_opened_count) {
+                    var percentage = trip.value.user.conversation_answered_count / trip.value.user.conversation_opened_count;
                     response = Math.round(percentage * 100).toFixed(0) + '%';
                 } else {
                     response = 'No ha conversado aún.';
                 }
             }
             return response;
-        }
-    },
-    components: {
-        SvgItem,
-        TripDate,
-        TripDescription
-    },
+        })
 
-    secondsToHms (d) {
-        var time = Number(d);
-        var hours = Math.floor(time / 60 / 60);
-        var minutes = Math.floor(time / 60) % 60;
-        var seconds = Math.floor(time - minutes * 60);
-        return hours + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+        const goToProfile = () => {
+            router.push({
+                name: 'profile',
+                params: { id: getUserProfile.value, userProfile: trip.value.user }
+            })
+        }
+
+        return {
+            trip,
+            user,
+            tripCardTheme,
+            config,
+            isMobile,
+            getUserProfile,
+            getUserImage,
+            tripStars,
+            averageDelay,
+            percentageResponse,
+            goToProfile
+        }
     }
-};
+}
 </script>
+
 <style scoped>
     .user_pin {
         margin-top: 1em;

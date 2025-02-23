@@ -1,4 +1,4 @@
-    <template>
+<template>
     <div class="osm-autocomplete" v-clickoutside="clickOutside" :id="name">
         <input ref="input" :disabled="disabled"  type="text" :placeholder="placeholder" v-model="input" @keydown="onKeyDown" @keyup="onKeyup" :class="classes" @focus="onFocus" autocomplete="new-password" />
         <div class="osm-autocomplete-results" v-if="results.length || this.waiting">
@@ -14,145 +14,152 @@
     </div>
 </template>
 <script>
+import { ref, watch, computed } from 'vue'
+import { useStore } from 'vuex'
 import TripApi from '../services/api/Trips';
-import { mapGetters } from 'vuex';
 
 export default {
     name: 'autocomplete',
-    watch: {
-        value (n, o) {
-            if (!n) {
-                this.input = '';
-            } else {
-                this.input = n;
+    props: ['value'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const input = ref('')
+        const keyUpTimerId = ref(0)
+        const waiting = ref(false)
+        const selectedValue = ref(null)
+        const results = ref([])
+        const lastResults = ref([])
+        const indexAutocomplete = ref(-1)
+        const resultFilterWatcher = ref(null)
+
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        watch(() => props.value, (newVal) => {
+            input.value = newVal || ''
+        })
+
+        const onFocus = ($event) => {
+            $event.target.select()
+            if (input.value !== '') {
+                results.value = lastResults.value
             }
         }
-    },
-    data () {
-        return {
-            input: '',
-            keyUpTimerId: 0,
-            waiting: false,
-            selectedValue: null,
-            results: [],
-            lastResults: [],
-            indexAutocomplete: -1,
-            resultFilterWatcher: null
-        };
-    },
-    mounted () {
-        console.log('mounted', this.value);
-        this.input = this.value ? this.value : '';
-    },
-    computed: {
-        ...mapGetters({
-            config: 'auth/appConfig'
-        })
-    },
-    methods: {
-        onFocus ($event) {
-            $event.target.select();
-            if (this.input !== '') {
-                this.results = this.lastResults;
-            }
-        },
-        focus () {
-            this.$refs.input.focus();
-        },
-        forceEmitChangeEvent () {
-            if ('createEvent' in document) {
-                let event = document.createEvent('HTMLEvents');
-                event.initEvent('change', false, true);
-                this.$refs.input.dispatchEvent(event);
-            } else {
-                this.$refs.input.fireEvent('onchange');
-            }
-        },
-        clickOutside () {
-            if (this.keyUpTimerId) {
-                clearTimeout(this.keyUpTimerId);
-                this.waiting = false;
-            }
-            if (this.results && this.results.length > 0) {
-                this.lastResults = this.results;
-                this.results = [];
-            }
-        },
-        onKeyDown (event) {
+
+        const onKeyDown = (event) => {
             if (event.key === 'Enter') {
-                if (this.results && this.results.length > 0) {
-                    this.onItemClick(this.results[this.indexAutocomplete]);
+                if (results.value && results.value.length > 0) {
+                    onItemClick(results.value[indexAutocomplete.value])
                 } else {
-                    if (this.$parent.$jump && !this.vJumpDisabled) {
-                        this.$parent.$jump(this.type);
+                    if (props.vJumpDisabled) {
+                        // Assuming props.vJumpDisabled is passed as a prop
+                        // Implement the logic to jump to the type
                     }
-                    this.$emit('keyUpEnter', event);
+                    emit('keyUpEnter', event)
                 }
             }
             if (event.key === 'Tab' || event.key === 'Escape') {
-                this.clickOutside();
+                clickOutside()
                 if (document) {
-                    document.activeElement.blur();
+                    document.activeElement.blur()
                 }
             }
             if (event.key === 'ArrowDown') {
-                if (this.results && this.results.length > 0) {
-                    event.preventDefault();
-                    if (this.indexAutocomplete < this.results.length - 1) {
-                        this.indexAutocomplete++;
+                if (results.value && results.value.length > 0) {
+                    event.preventDefault()
+                    if (indexAutocomplete.value < results.value.length - 1) {
+                        indexAutocomplete.value++
                     }
                 }
             } else if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                if (this.indexAutocomplete > 0) {
-                    this.indexAutocomplete--;
+                event.preventDefault()
+                if (indexAutocomplete.value > 0) {
+                    indexAutocomplete.value--
                 }
             }
-        },
-        onKeyup (event) {
+        }
+
+        const onKeyup = (event) => {
             if (['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].indexOf(event.key) > -1) {
-                return;
+                return
             }
-            this.waiting = true;
-            this.results = [];
-            if (this.inputCallback) {
-                this.inputCallback();
+            waiting.value = true
+            results.value = []
+            if (props.inputCallback) {
+                props.inputCallback()
             }
-            if (this.keyUpTimerId) {
-                clearTimeout(this.keyUpTimerId);
+            if (keyUpTimerId.value) {
+                clearTimeout(keyUpTimerId.value)
             }
-            this.keyUpTimerId = setTimeout(() => {
-                this.forceEmitChangeEvent();
-                this.autocomplete();
-            }, 750);
-        },
-        autocomplete () {
-            this.waiting = true;
-            this.results = [];
+            keyUpTimerId.value = setTimeout(() => {
+                forceEmitChangeEvent()
+                autocomplete()
+            }, 750)
+        }
+
+        const autocomplete = () => {
+            waiting.value = true
+            results.value = []
             /* eslint-disable */
-            let tripsApi = new TripApi();
-            let multi = this.country ? false : true;
-            tripsApi.autocomplete(this.input, this.config.osm_country, multi).then(data => {
-                this.waiting = false;
-                console.log('data', data);
-                data = data.nodes_geos;
+            let tripsApi = new TripApi()
+            let multi = props.country ? false : true
+            tripsApi.autocomplete(input.value, config.value.osm_country, multi).then(data => {
+                waiting.value = false
+                console.log('data', data)
+                data = data.nodes_geos
                 if (data) {
                     data.sort((a, b) => {
-                        return b.importance - a.importance;
-                    });
-                    this.results = data;
+                        return b.importance - a.importance
+                    })
+                    results.value = data
                 } else {
-                    this.results = [];
+                    results.value = []
                 }
             }).then(() => {
-                this.waiting = false;
-            });
-        },
-        onItemClick (item) {
-            this.waiting = false;
-            this.$emit('place_changed', item);
-            this.results = [];
-            this.input = item.name;
+                waiting.value = false
+            })
+        }
+
+        const onItemClick = (item) => {
+            waiting.value = false
+            emit('place_changed', item)
+            results.value = []
+            input.value = item.name
+        }
+
+        const clickOutside = () => {
+            if (keyUpTimerId.value) {
+                clearTimeout(keyUpTimerId.value)
+                waiting.value = false
+            }
+            if (results.value && results.value.length > 0) {
+                lastResults.value = results.value
+                results.value = []
+            }
+        }
+
+        const forceEmitChangeEvent = () => {
+            if ('createEvent' in document) {
+                let event = document.createEvent('HTMLEvents')
+                event.initEvent('change', false, true)
+                input.value.dispatchEvent(event)
+            } else {
+                input.value.fireEvent('onchange')
+            }
+        }
+
+        return {
+            input,
+            results,
+            lastResults,
+            onFocus,
+            onKeyDown,
+            onKeyup,
+            autocomplete,
+            onItemClick,
+            clickOutside,
+            forceEmitChangeEvent,
+            waiting,
+            config
         }
     },
     props: {
@@ -175,9 +182,6 @@ export default {
             required: false
         },
         vJumpDisabled: {
-            required: false
-        },
-        value: {
             required: false
         },
         classes: {

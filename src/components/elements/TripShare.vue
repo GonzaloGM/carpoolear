@@ -14,57 +14,67 @@
         </a>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
+import { computed, ref } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
+
 export default {
-    name: 'TripDate',
-    data () {
-        return {
-            currentUrl: encodeURIComponent('https://carpoolear.com.ar/app' + this.$route.fullPath)
-        };
-    },
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme',
-            isMobile: 'device/isMobile'
-        }),
-        isPassengersView () {
-            return this.trip.is_passenger;
-        }
-    },
-    components: {
-    },
-    methods: {
-        onShareLinkClick (event) {
+    name: 'TripShare',
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+
+        const currentUrl = ref(encodeURIComponent('https://carpoolear.com.ar/app' + route.fullPath))
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        
+        const isPassengersView = computed(() => trip.value.is_passenger)
+
+        const onShareLinkClick = (event) => {
             if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
                 // Estoy en movil
-                event.preventDefault();
-                let href = event.target.getAttribute('href');
+                event.preventDefault()
+                let href = event.target.getAttribute('href')
                 if (!href) {
-                    href = event.target.parentElement.getAttribute('href');
+                    href = event.target.parentElement.getAttribute('href')
                 }
                 if (href) {
-                    window.location.href = href;
-                }
-            }
-        },
-        onWhatsAppShareClick (event) {
-            if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
-                // Estoy en movil
-                event.preventDefault();
-                if (window && window.plugins && window.plugins.socialsharing && window.plugins.socialsharing.shareWithOptions) {
-                    let message = 'Publiqué un viaje para compartir en Carpoolear';
-                    window.plugins.socialsharing.shareViaWhatsApp(message, null /* img */, decodeURIComponent(this.currentUrl), function () {
-                        console.log('share ok');
-                    }, function (errormsg) {
-                        console.log('share not ok:', errormsg);
-                    });
+                    window.location.href = href
                 }
             }
         }
+
+        const onWhatsAppShareClick = (event) => {
+            if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
+                // Estoy en movil
+                event.preventDefault()
+                if (window && window.plugins && window.plugins.socialsharing && window.plugins.socialsharing.shareWithOptions) {
+                    let message = 'Publiqué un viaje para compartir en Carpoolear'
+                    window.plugins.socialsharing.shareViaWhatsApp(message, null /* img */, decodeURIComponent(currentUrl.value), function () {
+                        console.log('share ok')
+                    }, function (errormsg) {
+                        console.log('share not ok:', errormsg)
+                    })
+                }
+            }
+        }
+
+        return {
+            currentUrl,
+            trip,
+            tripCardTheme,
+            isMobile,
+            isPassengersView,
+            onShareLinkClick,
+            onWhatsAppShareClick
+        }
     }
-};
+}
 </script>
+
 <style scoped>
 </style>

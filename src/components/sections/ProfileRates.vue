@@ -72,85 +72,65 @@
     </div>
 </template>
 <script>
-import { mapGetters } from 'vuex';
+import { reactive, computed } from 'vue'
+import { useStore } from 'vuex'
 import Loading from '../Loading.vue';
 import RateItem from '../RateItem';
 
-let emptyCols = {
+const emptyCols = {
     col1: [],
     col2: [],
     col3: []
-};
+}
 
 export default {
-    data () {
-        return {
+    setup() {
+        const store = useStore()
+        const state = reactive({
             rating: {},
             referencesCol: {}
-        };
-    },
-    methods: {
-        cleanCols (array) {
-            this[array] = JSON.parse(JSON.stringify(emptyCols));
-        },
-        makeRows (arrayToCheck, arrayToPush) {
-            if (this[arrayToCheck]) {
-                this.cleanCols(arrayToPush);
-                if (this.isMobile) {
-                    this[arrayToPush].col1 = this[arrayToCheck].slice(0);
+        })
+
+        const cleanCols = (array) => {
+            state[array] = JSON.parse(JSON.stringify(emptyCols))
+        }
+
+        const makeRows = (arrayToCheck, arrayToPush) => {
+            if (state[arrayToCheck]) {
+                cleanCols(arrayToPush)
+                if (isMobile.value) {
+                    state[arrayToPush].col1 = state[arrayToCheck].slice(0)
                 } else {
-                    let i, j;
-                    let rows = this.isTablet ? 2 : 3;
-                    for (j = 0; j < rows; j++) {
-                        i = j;
-                        for (i; i < this[arrayToCheck].length; i += rows) {
-                            this[arrayToPush][`col${j + 1}`].push(this[arrayToCheck][i]);
+                    let rows = isTablet.value ? 2 : 3
+                    for (let j = 0; j < rows; j++) {
+                        for (let i = j; i < state[arrayToCheck].length; i += rows) {
+                            state[arrayToPush][`col${j + 1}`].push(state[arrayToCheck][i])
                         }
                     }
                 }
             }
         }
-    },
-    computed: {
-        ...mapGetters({
-            'user': 'auth/user',
-            'rates': 'profile/rates',
-            'isMobile': 'device/isMobile',
-            'isTablet': 'device/isTablet',
-            'isDesktop': 'device/isDesktop',
-            'config': 'auth/appConfig',
-            'references': 'profile/references'
-        })
-    },
-    watch: {
-        rates: {
-            handler: function (val, oldVal) {
-                this.makeRows('rates', 'rating');
-            }
-        },
-        references: {
-            handler: function (val, oldVal) {
-                if (this.config && this.config.module_references) {
-                    this.makeRows('references', 'referencesCol');
-                }
-            }
-        },
-        isMobile: {
-            handler: function (val, oldVal) {
-                console.log('isMobileChange');
-                this.makeRows('rates', 'rating');
-                if (this.config && this.config.module_references) {
-                    this.makeRows('references', 'referencesCol');
-                }
-            }
-        },
-        isDesktop: {
-            handler: function (val, oldVal) {
-                this.makeRows('rates', 'rating');
-                if (this.config && this.config.module_references) {
-                    this.makeRows('references', 'referencesCol');
-                }
-            }
+
+        // Computed properties using Vuex store
+        const user = computed(() => store.getters['auth/user'])
+        const rates = computed(() => store.getters['profile/rates'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        const isTablet = computed(() => store.getters['device/isTablet'])
+        const isDesktop = computed(() => store.getters['device/isDesktop'])
+        const config = computed(() => store.getters['auth/appConfig'])
+        const references = computed(() => store.getters['profile/references'])
+
+        return {
+            ...state,
+            cleanCols,
+            makeRows,
+            user,
+            rates,
+            isMobile,
+            isTablet,
+            isDesktop,
+            config,
+            references
         }
     },
     components: {

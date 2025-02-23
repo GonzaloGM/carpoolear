@@ -5,12 +5,16 @@
 </template>
 
 <script>
-import LineChart from './LineChart';
-import { mapActions } from 'vuex';
-import moment from 'moment';
+import { ref, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import LineChart from './LineChart'
+import moment from 'moment'
 
 export default {
     name: 'monthly-users-chart',
+    components: {
+        LineChart
+    },
     props: {
         minDate: {
             default: moment(Date(new Date().getFullYear(), 0, 1), 'YYYY-MM')
@@ -19,68 +23,56 @@ export default {
             default: moment(Date(), 'YYYY-MM')
         }
     },
-    data () {
-        return {
-            users: {},
-            usersData: {},
-            usersOptions: {
-                responsive: true,
-                maintainAspectRatio: false,
-                title: {
+    setup(props) {
+        const store = useStore()
+        
+        const users = ref({})
+        const usersData = ref({})
+        const usersOptions = ref({
+            responsive: true,
+            maintainAspectRatio: false,
+            title: {
+                display: true,
+                text: 'Usuarios registrados por mes'
+            },
+            tooltips: {
+                mode: 'index',
+                intersect: false
+            },
+            hover: {
+                mode: 'nearest',
+                intersect: true
+            },
+            scales: {
+                xAxes: [{
                     display: true,
-                    text: 'Usuarios registrados por mes'
-                },
-                tooltips: {
-                    mode: 'index',
-                    intersect: false
-                },
-                hover: {
-                    mode: 'nearest',
-                    intersect: true
-                },
-                scales: {
-                    xAxes: [{
+                    scaleLabel: {
                         display: true,
-                        scaleLabel: {
-                            display: true,
-                            labelString: 'Mes'
-                        },
-                        stacked: true
-                    }],
-                    yAxes: [{
+                        labelString: 'Mes'
+                    },
+                    stacked: true
+                }],
+                yAxes: [{
+                    display: true,
+                    scaleLabel: {
                         display: true,
-                        scaleLabel: {
-                            display: true,
-                            labelString: 'Cantidad'
-                        }
-                    }]
-                }
+                        labelString: 'Cantidad'
+                    }
+                }]
             }
-        };
-    },
-    watch: {
-        'minDate': function () {
-            this.usersData = this.processUsers(this.users, this.minDate, this.maxDate);
-        },
-        'maxDate': function () {
-            this.usersData = this.processUsers(this.users, this.minDate, this.maxDate);
-        }
-    },
-    methods: {
-        ...mapActions({
-            getUsers: 'admin/getUserStats'
-        }),
-        processUsers (usuarios, minDate, maxDate) {
-            let labels = [];
-            let datasetTotales = [];
-            let total = 0;
+        })
+
+        const processUsers = (usuarios, minDate, maxDate) => {
+            let labels = []
+            let datasetTotales = []
+            let total = 0
             usuarios.forEach(function (el) {
                 if (el.key <= maxDate && el.key >= minDate) {
-                    labels.push(el.key);
-                    total += el.cantidad;
-                    datasetTotales.push(total);
+                    labels.push(el.key)
+                    total += el.cantidad
+                    datasetTotales.push(total)
                 }
-            });
+            })
             return {
                 labels: labels,
                 datasets: [{
@@ -90,21 +82,36 @@ export default {
                     data: datasetTotales,
                     fill: false
                 }]
-            };
-        },
-        async loadData () {
-            this.users = await this.getUsers();
-            this.users = this.users.users;
-            this.usersData = this.processUsers(this.users, this.minDate, this.maxDate);
+            }
         }
-    },
-    components: {
-        LineChart
-    },
-    mounted () {
-        this.loadData();
+
+        const loadData = async () => {
+            users.value = await store.dispatch('admin/getUserStats')
+            users.value = users.value.users
+            usersData.value = processUsers(users.value, props.minDate, props.maxDate)
+        }
+
+        watch(() => props.minDate, () => {
+            usersData.value = processUsers(users.value, props.minDate, props.maxDate)
+        })
+
+        watch(() => props.maxDate, () => {
+            usersData.value = processUsers(users.value, props.minDate, props.maxDate)
+        })
+
+        onMounted(() => {
+            loadData()
+        })
+
+        return {
+            users,
+            usersData,
+            usersOptions,
+            processUsers,
+            loadData
+        }
     }
-};
+}
 </script>
 
 <style scoped>

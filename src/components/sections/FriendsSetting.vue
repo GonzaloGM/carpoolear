@@ -51,85 +51,86 @@
         </Loading>
     </div>
 </template>
+
 <script>
-import { mapGetters, mapActions } from 'vuex';
-import Loading from '../Loading.vue';
-import FriendCard from './FriendCard';
-import FriendRequestCard from './FriendRequestCard';
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import Loading from '../Loading.vue'
+import FriendCard from './FriendCard'
+import FriendRequestCard from './FriendRequestCard'
 
 export default {
     name: 'friends_setting',
-    data () {
-        return {
-            text: '',
-            idRequesting: 0
-        };
-    },
-    computed: {
-        ...mapGetters({
-            friends: 'friends/friends',
-            pendings: 'friends/pendings'
-        }),
-
-        noResult () {
-            if (this.text.length) {
-                return 'No hay resultados';
-            } else {
-                return 'No tienes ningún amigo aún.';
-            }
-        }
-    },
-    methods: {
-        ...mapActions({
-            'search': 'friends/friendsSearch',
-            'lookPeginds': 'friends/pending',
-            'accept': 'friends/accept',
-            'reject': 'friends/reject',
-            'delete': 'friends/delete'
-        }),
-
-        onTextChange () {
-            this.search({ value: this.text });
-        },
-
-        onAcceptClick (user) {
-            this.idRequesting = user.id;
-            this.accept(user.id).then(() => {
-                this.idRequesting = 0;
-            }, () => {
-                this.idRequesting = 0;
-            });
-        },
-
-        onRejectClick (user) {
-            this.idRequesting = user.id;
-            this.reject(user.id).then(() => {
-                this.idRequesting = 0;
-            }, () => {
-                this.idRequesting = 0;
-            });
-        },
-
-        onDeleteClick (user) {
-            this.idRequesting = user.id;
-            this.delete(user.id).then(() => {
-                this.idRequesting = 0;
-            }, () => {
-                this.idRequesting = 0;
-            });
-        }
-    },
-
-    mounted () {
-        this.search({});
-        this.lookPeginds();
-    },
     components: {
         Loading,
         FriendCard,
         FriendRequestCard
+    },
+    setup() {
+        const store = useStore()
+        const text = ref('')
+        const idRequesting = ref(0)
+
+        const friends = computed(() => store.getters['friends/friends'])
+        const pendings = computed(() => store.getters['friends/pendings'])
+        
+        const noResult = computed(() => {
+            if (text.value.length) {
+                return 'No hay resultados'
+            } else {
+                return 'No tienes ningún amigo aún.'
+            }
+        })
+
+        const onTextChange = () => {
+            store.dispatch('friends/friendsSearch', { value: text.value })
+        }
+
+        const onAcceptClick = (user) => {
+            idRequesting.value = user.id
+            store.dispatch('friends/accept', user.id).then(() => {
+                idRequesting.value = 0
+            }, () => {
+                idRequesting.value = 0
+            })
+        }
+
+        const onRejectClick = (user) => {
+            idRequesting.value = user.id
+            store.dispatch('friends/reject', user.id).then(() => {
+                idRequesting.value = 0
+            }, () => {
+                idRequesting.value = 0
+            })
+        }
+
+        const onDeleteClick = (user) => {
+            idRequesting.value = user.id
+            store.dispatch('friends/delete', user.id).then(() => {
+                idRequesting.value = 0
+            }, () => {
+                idRequesting.value = 0
+            })
+        }
+
+        onMounted(() => {
+            store.dispatch('friends/friendsSearch', {})
+            store.dispatch('friends/pending')
+        })
+
+        return {
+            text,
+            idRequesting,
+            friends,
+            pendings,
+            noResult,
+            onTextChange,
+            onAcceptClick,
+            onRejectClick,
+            onDeleteClick
+        }
     }
-};
+}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->

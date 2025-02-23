@@ -18,19 +18,27 @@
         </template>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
-import SvgItem from '../SvgItem';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import SvgItem from '../SvgItem'
+
 export default {
     name: 'TripSeats',
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme'
-        })
-    },
     components: {
         SvgItem
+    },
+    setup() {
+        const store = useStore()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+
+        return {
+            trip,
+            tripCardTheme
+        }
     }
-};
+}
 </script>

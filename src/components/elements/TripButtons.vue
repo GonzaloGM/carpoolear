@@ -71,79 +71,100 @@
     </div>
 </template>
 <script>
-import { mapGetters } from 'vuex';
-import moment from 'moment';
-import spinner from '../Spinner.vue';
-import Transactions from '../views/transactions.vue';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import moment from 'moment'
+import spinner from '../Spinner.vue'
 
 export default {
     name: 'TripButtons',
-    data () {
-        return {
-        };
+    components: {
+        spinner
     },
     props: ['sending'],
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme',
-            user: 'auth/user',
-            isMobile: 'device/isMobile',
-            config: 'auth/appConfig'
-        }),
-        sendingStatus () {
-            Object.keys(this.sending).some(k => this.sending[k] === true);
-        },
-        isPassenger () {
-            return Array.isArray(this.trip.allPassengerRequest) ? this.trip.allPassengerRequest.findIndex(item => item.user_id === this.user.id && (item.request_state === 1 || item.request_state === 4)) >= 0 : false;
-        },
-        expired () {
-            return moment(this.trip.trip_date).format() < moment().format();
-        },
-        owner () {
-            return this.trip && this.user && this.user.id === this.trip.user.id;
-        },
-        canRequest () {
-            return !this.owner && !this.trip.request;
-        },
-        isPassengersView () {
-            return this.trip.is_passenger;
-        }
-    },
-    components: {
-        spinner,
-        Transactions
-    },
-    methods: {
-        onShareLinkClick (event) {
+    setup(props) {
+        const store = useStore()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const user = computed(() => store.getters['auth/user'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+        const config = computed(() => store.getters['auth/appConfig'])
+
+        const sendingStatus = computed(() => {
+            return Object.keys(props.sending).some(k => props.sending[k] === true)
+        })
+
+        const isPassenger = computed(() => {
+            return Array.isArray(trip.value.allPassengerRequest) ? 
+                trip.value.allPassengerRequest.findIndex(item => 
+                    item.user_id === user.value.id && 
+                    (item.request_state === 1 || item.request_state === 4)
+                ) >= 0 : false
+        })
+
+        const expired = computed(() => {
+            return moment(trip.value.trip_date).format() < moment().format()
+        })
+
+        const owner = computed(() => {
+            return trip.value && user.value && user.value.id === trip.value.user.id
+        })
+
+        const canRequest = computed(() => {
+            return !owner.value && !trip.value.request
+        })
+
+        const isPassengersView = computed(() => {
+            return trip.value.is_passenger
+        })
+
+        const onShareLinkClick = (event) => {
             if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
-                // Estoy en movil
-                event.preventDefault();
-                let href = event.target.getAttribute('href');
+                event.preventDefault()
+                let href = event.target.getAttribute('href')
                 if (!href) {
-                    href = event.target.parentElement.getAttribute('href');
+                    href = event.target.parentElement.getAttribute('href')
                 }
                 if (href) {
-                    window.location.href = href;
-                }
-            }
-        },
-        onWhatsAppShareClick (event) {
-            if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
-                // Estoy en movil
-                event.preventDefault();
-                if (window && window.plugins && window.plugins.socialsharing && window.plugins.socialsharing.shareWithOptions) {
-                    let message = 'Publiqué un viaje para compartir en Carpoolear';
-                    window.plugins.socialsharing.shareViaWhatsApp(message, null /* img */, decodeURIComponent(this.currentUrl), function () {
-                        console.log('share ok');
-                    }, function (errormsg) {
-                        console.log('share not ok:', errormsg);
-                    });
+                    window.location.href = href
                 }
             }
         }
+
+        const onWhatsAppShareClick = (event) => {
+            if (window.device && window.device.platform && window.device.platform.toLowerCase() !== 'browser') {
+                event.preventDefault()
+                if (window && window.plugins && window.plugins.socialsharing && window.plugins.socialsharing.shareWithOptions) {
+                    let message = 'Publiqué un viaje para compartir en Carpoolear'
+                    window.plugins.socialsharing.shareViaWhatsApp(
+                        message, 
+                        null /* img */, 
+                        decodeURIComponent(this.currentUrl),
+                        () => console.log('share ok'),
+                        errormsg => console.log('share not ok:', errormsg)
+                    )
+                }
+            }
+        }
+
+        return {
+            trip,
+            tripCardTheme,
+            user,
+            isMobile,
+            config,
+            sendingStatus,
+            isPassenger,
+            expired,
+            owner,
+            canRequest,
+            isPassengersView,
+            onShareLinkClick,
+            onWhatsAppShareClick
+        }
     }
-};
+}
 </script>
 <style scoped>
     .buttons-container button:first-child {

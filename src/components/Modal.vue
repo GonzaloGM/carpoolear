@@ -24,34 +24,63 @@
 </template>
 
 <script>
-import { setTimeout } from 'timers';
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+
 export default {
     name: 'modal',
-    data () {
-        return {
-            clickOutsideHandler: () => {}
-        };
-    },
-    mounted () {
-        setTimeout(() => {
-            this.clickOutsideHandler = this.clickOutside;
-        }, 0);
-    },
-    methods: {
-    },
-
     props: {
-        hideFooter: {
-            required: false
-        },
-        clickOutside: {
-            required: false
-        },
+        hideFooter: Boolean,
         name: {
-            required: false
+            type: String,
+            required: true
+        },
+        title: {
+            type: String,
+            default: ''
+        },
+        body: {
+            type: String,
+            default: ''
+        }
+    },
+    setup(props, { emit }) {
+        const modalVisible = ref(true)
+        const modalElement = ref(null)
+
+        const close = () => {
+            modalVisible.value = false
+            emit('close')
+        }
+
+        const handleEscape = (e) => {
+            if (e.keyCode === 27) {
+                close()
+            }
+        }
+
+        const handleClickOutside = (e) => {
+            if (modalElement.value && !modalElement.value.contains(e.target)) {
+                close()
+            }
+        }
+
+        onMounted(() => {
+            document.addEventListener('keydown', handleEscape)
+            document.addEventListener('mousedown', handleClickOutside)
+        })
+
+        onBeforeUnmount(() => {
+            document.removeEventListener('keydown', handleEscape)
+            document.removeEventListener('mousedown', handleClickOutside)
+        })
+
+        return {
+            modalVisible,
+            modalElement,
+            close
         }
     }
-};
+}
 </script>
 
 <style scoped>

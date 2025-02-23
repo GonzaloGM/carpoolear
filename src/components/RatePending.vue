@@ -12,7 +12,7 @@
                     ¿Cómo calificarías a <strong>{{ to.name }}</strong> como
                     <span v-if="rate.user_to_type === DRIVER"> conductor </span>
                     <span v-if="rate.user_to_type === PASSENGER"> pasajero </span>
-                    en el viaje hacía <strong>{{ trip.points[trip.points.length - 1].json_address.ciudad }}</strong> el día <strong>{{ trip.trip_date | moment('dddd DD [de] MMMM') }}</strong> ?
+                    en el viaje hacía <strong>{{ trip.points[trip.points.length - 1].json_address.ciudad }}</strong> el día <strong>{{ formatDate(trip.trip_date, 'dddd DD [de] MMMM') }}</strong> ?
                 </div>
             </div>
             <div class="float-margin">
@@ -25,99 +25,115 @@
                     </button>
                 </div>
             </div>
-            <div class="rate--comment-box" v-show="expanded">
-                <textarea maxlength="600" class="rate_comment" v-model="comment" placeholder="Incluya un comentario..."></textarea>
-                <button class="btn btn-primary" @click="makeVote" :disabled="sending"> Calificar </button>
+            <div class="rate-pending-message--content" v-if="expanded">
+                <div class="rate-pending-message--content">
+                    <div class="form-group">
+                        <label for="comment">Comentario (opcional)</label>
+                        <textarea class="form-control" v-model="comment" rows="3"></textarea>
+                    </div>
+                    <div class="rate-buttons">
+                        <button class="btn btn-primary" :disabled="sending" @click="makeVote">
+                            <spinner class="blue" v-if="sending"></spinner>
+                            <span v-else>Enviar</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </template>
+
 <script>
-import { mapActions, mapGetters } from 'vuex';
-import dialogs from '../services/dialogs.js';
+import { ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import dialogs from '../services/dialogs'
+import modal from './Modal.vue'
+import spinner from './Spinner.vue'
+import moment from 'moment'
 
 export default {
     name: 'rate-pending',
+    components: {
+        modal,
+        spinner
+    },
+    props: {
+        rate: {
+            type: Object,
+            required: true
+        },
+        trip: {
+            type: Object,
+            required: true
+        },
+        to: {
+            type: Object,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+        const router = useRouter()
 
-    data () {
+        const DRIVER = 1
+        const PASSENGER = 2
+
+        const showModalRequestRate = ref(false)
+        const rateRequestValue = ref(0)
+        const rating = ref(null)
+        const comment = ref('')
+        const sending = ref(false)
+        const vote = ref(-1)
+        const expanded = ref(false)
+
+        const user = computed(() => store.getters['auth/user'])
+
+        const formatDate = (date, format) => {
+            return moment(date).format(format)
+        }
+
+        const setRate = (value) => {
+            vote.value = value
+            expanded.value = true
+        }
+
+        const makeVote = async () => {
+            if (sending.value) return
+            
+            sending.value = true
+            try {
+                await store.dispatch('rates/rate', {
+                    trip_id: props.trip.id,
+                    user_id: props.to.id,
+                    user_type: props.rate.user_to_type,
+                    rating: vote.value,
+                    comment: comment.value
+                })
+                dialogs.success('Calificación enviada')
+            } catch (error) {
+                console.error('Error rating:', error)
+                dialogs.error('No se pudo enviar la calificación')
+            } finally {
+                sending.value = false
+            }
+        }
+
         return {
-            ACCEPTED: 1,
-            CANCELED: 3,
-            DRIVER: 0,
-            PASSENGER: 1,
-            vote: null,
-            expanded: false,
-            comment: '',
-            sending: false
-        };
-    },
-
-    methods: {
-        ...mapActions({
-            emit: 'rates/vote'
-        }),
-
-        setRate (value) {
-            if (this.vote === value) {
-                this.vote = null;
-                this.expanded = false;
-            } else {
-                this.vote = value;
-                this.expanded = true;
-            }
-        },
-
-        makeVote () {
-            this.sending = true;
-            let data = {
-                id: this.rate.id,
-                trip_id: this.trip.id,
-                user_id: this.to.id,
-                comment: this.comment,
-                rating: this.vote
-            };
-            let ok = false;
-            if (!this.vote) {
-                if (!this.comment) {
-                    // Voto negativo y comentario vacio
-                    dialogs.message('El comentario no puede estar vacío para los votos negativos.', { duration: 10, estado: 'error' });
-                } else {
-                    ok = true;
-                }
-            } else {
-                ok = true;
-            }
-            if (ok) {
-                console.log('emit rated');
-                this.$emit('rated', data);
-                this.emit(data).then(() => {
-                    this.comment = '';
-                    this.sending = false;
-                }).catch(() => {
-                    this.sending = false;
-                });
-            } else {
-                this.sending = false;
-            }
+            showModalRequestRate,
+            rateRequestValue,
+            rating,
+            comment,
+            sending,
+            vote,
+            expanded,
+            user,
+            DRIVER,
+            PASSENGER,
+            formatDate,
+            setRate,
+            makeVote
         }
-    },
-
-    computed: {
-        ...mapGetters({
-            user: 'auth/user'
-        }),
-
-        to () {
-            return this.rate.to;
-        },
-
-        trip () {
-            return this.rate.trip;
-        }
-    },
-
-    props: [
-        'rate'
-    ]
-};
+    }
+}
 </script>

@@ -49,25 +49,33 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
-import SvgItem from '../SvgItem';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import SvgItem from '../SvgItem'
+
 export default {
     name: 'TripData',
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme'
-        }),
-        isPassengersView () {
-            return this.trip.is_passenger;
-        }
-    },
     components: {
         SvgItem
+    },
+    setup() {
+        const store = useStore()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const isPassengersView = computed(() => trip.value.is_passenger)
+
+        return {
+            trip,
+            tripCardTheme,
+            isPassengersView
+        }
     }
-};
+}
 </script>
+
 <style scoped>
     .trip-data em {
         display: block;

@@ -23,30 +23,42 @@
         </div>
     </div>
 </template>
+
 <script>
-import { mapGetters } from 'vuex';
-import SvgItem from '../SvgItem';
+import { computed } from 'vue'
+import { useStore } from 'vuex'
+import SvgItem from '../SvgItem'
+
 export default {
     name: 'TripDate',
-    computed: {
-        ...mapGetters({
-            trip: 'trips/currentTrip',
-            tripCardTheme: 'auth/tripCardTheme',
-            isMobile: 'device/isMobile'
-        }),
-        distanceString () {
-            return Math.floor(this.trip.distance / 1000);
-        },
-        isPassengersView () {
-            return this.trip.is_passenger;
-        }
-    },
     components: {
         SvgItem
     },
-    methods: {
+    setup() {
+        const store = useStore()
+
+        const trip = computed(() => store.getters['trips/currentTrip'])
+        const tripCardTheme = computed(() => store.getters['auth/tripCardTheme'])
+        const isMobile = computed(() => store.getters['device/isMobile'])
+
+        const distanceString = computed(() => {
+            return Math.floor(trip.value.distance / 1000)
+        })
+
+        const isPassengersView = computed(() => {
+            return trip.value.is_passenger
+        })
+
+        return {
+            trip,
+            tripCardTheme,
+            isMobile,
+            distanceString,
+            isPassengersView
+        }
     }
-};
+}
 </script>
+
 <style scoped>
 </style>
